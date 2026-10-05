@@ -346,6 +346,203 @@ class AnalyticsDao {
         parentCategoryId: parentCategoryId,
       );
 
+  /// 按月聚合的收支趋势（月度趋势图）。
+  ///
+  /// 用 `strftime('%Y-%m')` 分组；月份键在 Dart 侧解析成 year/month，
+  /// 便于补齐没有交易的月份（趋势图需要连续的时间轴）。
+  Future<List<MonthlyTotal>> monthlyTotals({
+    required int fromMillis,
+    required int toMillis,
+  }) async {
+    final db = await _database.open();
+    final rows = await db.rawQuery(
+      '''
+      SELECT strftime('%Y-%m', transaction_time / 1000, 'unixepoch', 'localtime') AS ym,
+             COALESCE(SUM(CASE WHEN transaction_type = 'income'  THEN amount_cents END), 0) AS income,
+             COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount_cents END), 0) AS expense,
+             COALESCE(SUM(CASE WHEN transaction_type = 'refund'  THEN amount_cents END), 0) AS refund
+      FROM $_t
+      WHERE deleted_at IS NULL
+        AND status IN ('success','refunded')
+        AND transaction_time >= ? AND transaction_time < ?
+      GROUP BY ym
+      ORDER BY ym
+      ''',
+      <Object?>[fromMillis, toMillis],
+    );
+
+    final result = <MonthlyTotal>[];
+    for (final row in rows) {
+      final ym = row['ym'] as String?;
+      if (ym == null || ym.length != 7) {
+        continue;
+      }
+      final parts = ym.split('-');
+      if (parts.length != 2) {
+        continue;
+      }
+      final year = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      if (year == null || month == null) {
+        continue;
+      }
+      result.add(
+        MonthlyTotal(
+          year: year,
+          month: month,
+          incomeCents: _asInt(row['income']),
+          expenseCents: _asInt(row['expense']),
+          refundCents: _asInt(row['refund']),
+        ),
+      );
+    }
+    return result;
+  }
+
+  /// 商户聚合排行（商户分析列表）。
+  ///
+  /// 可按分类/子分类限定，用于「分类下钻 → 商户」这一层。
+  Future<List<MerchantStat>> merchantTotals({
+    required int fromMillis,
+    required int toMillis,
+    int? categoryId,
+    int? subcategoryId,
+    int limit = 50,
+  }) async {
+    final db = await _database.open();
+    final where = StringBuffer('''
+      deleted_at IS NULL
+      AND status IN ('success','refunded')
+      AND transaction_type IN ('expense','refund')
+      AND merchant <> ''
+      AND transaction_time >= ? AND transaction_time < ?
+    ''');
+    final args = <Object?>[fromMillis, toMillis];
+
+    if (subcategoryId != null) {
+      where.write(' AND subcategory_id = ?');
+      args.add(subcategoryId);
+    } else if (categoryId != null) {
+      where.write(' AND category_id = ?');
+      args.add(categoryId);
+    }
+
+    final rows = await db.rawQuery(
+      '''
+      SELECT merchant,
+             SUM(amount_cents) AS total,
+             COUNT(*) AS cnt,
+             CAST(AVG(amount_cents) AS INTEGER) AS avg_cents,
+             MAX(transaction_time) AS last_at
+      FROM $_t
+      WHERE $where
+      GROUP BY merchant
+      ORDER BY total DESC
+      LIMIT ?
+      ''',
+      <Object?>[...args, limit],
+    );
+
+    return rows
+        .map(
+          (row) => MerchantStat(
+            merchant: row['merchant'] as String? ?? '',
+            totalCents: _asInt(row['total']),
+            transactionCount: _asInt(row['cnt']),
+            averageCents: _asInt(row['avg_cents']),
+            lastTransactionAt: DateTime.fromMillisecondsSinceEpoch(
+              _asInt(row['last_at']),
+            ),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  /// 单个商户的月度趋势（商户分析页）。
+  Future<List<MonthlyTotal>> merchantMonthlyTotals({
+    required String merchant,
+    required int fromMillis,
+    required int toMillis,
+  }) async {
+    final db = await _database.open();
+    final rows = await db.rawQuery(
+      '''
+      SELECT strftime('%Y-%m', transaction_time / 1000, 'unixepoch', 'localtime') AS ym,
+             COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount_cents END), 0) AS expense,
+             COALESCE(SUM(CASE WHEN transaction_type = 'refund'  THEN amount_cents END), 0) AS refund
+      FROM $_t
+      WHERE deleted_at IS NULL
+        AND status IN ('success','refunded')
+        AND merchant = ?
+        AND transaction_time >= ? AND transaction_time < ?
+      GROUP BY ym
+      ORDER BY ym
+      ''',
+      <Object?>[merchant, fromMillis, toMillis],
+    );
+
+    final result = <MonthlyTotal>[];
+    for (final row in rows) {
+      final ym = row['ym'] as String?;
+      if (ym == null || ym.length != 7) {
+        continue;
+      }
+      final parts = ym.split('-');
+      final year = int.tryParse(parts.first);
+      final month = parts.length > 1 ? int.tryParse(parts[1]) : null;
+      if (year == null || month == null) {
+        continue;
+      }
+      result.add(
+        MonthlyTotal(
+          year: year,
+          month: month,
+          incomeCents: 0,
+          expenseCents: _asInt(row['expense']),
+          refundCents: _asInt(row['refund']),
+        ),
+      );
+    }
+    return result;
+  }
+
+  /// 某个分类（或子分类）在区间内的净支出（预算执行计算）。
+  Future<int> spentCents({
+    int? categoryId,
+    int? subcategoryId,
+    required int fromMillis,
+    required int toMillis,
+  }) async {
+    final db = await _database.open();
+    final where = StringBuffer('''
+      deleted_at IS NULL
+      AND status IN ('success','refunded')
+      AND transaction_type IN ('expense','refund')
+      AND transaction_time >= ? AND transaction_time < ?
+    ''');
+    final args = <Object?>[fromMillis, toMillis];
+
+    if (subcategoryId != null) {
+      where.write(' AND subcategory_id = ?');
+      args.add(subcategoryId);
+    } else if (categoryId != null) {
+      where.write(' AND category_id = ?');
+      args.add(categoryId);
+    }
+
+    final rows = await db.rawQuery(
+      '''
+      SELECT COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount_cents ELSE -amount_cents END), 0) AS spent
+      FROM $_t
+      WHERE $where
+      ''',
+      args,
+    );
+    final value = rows.isEmpty ? null : rows.first['spent'];
+    final spent = _asInt(value);
+    return spent < 0 ? 0 : spent;
+  }
+
   /// 最早/最晚交易时间（数据时间跨度）。
   Future<DateTime?> earliestTime() async {
     final db = await _database.open();

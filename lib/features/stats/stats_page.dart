@@ -2,7 +2,9 @@ import 'package:finance_hub/app/providers.dart';
 import 'package:finance_hub/app/theme/app_colors.dart';
 import 'package:finance_hub/core/money/money.dart';
 import 'package:finance_hub/domain/entities/statistics.dart';
+import 'package:finance_hub/features/merchant/merchant_detail_page.dart';
 import 'package:finance_hub/shared/widgets/app_card.dart';
+import 'package:finance_hub/shared/widgets/charts/monthly_trend_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -22,7 +24,8 @@ class StatsPage extends ConsumerWidget {
     final month = ref.watch(selectedMonthProvider);
     final daily = ref.watch(dailyTotalsProvider);
     final buckets = ref.watch(timeBucketTotalsProvider);
-    final top = ref.watch(topExpensesProvider);
+    final trend = ref.watch(monthlyTrendProvider);
+    final merchants = ref.watch(merchantTotalsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -50,6 +53,12 @@ class StatsPage extends ConsumerWidget {
           AppDimens.gapXl,
         ),
         children: <Widget>[
+          AppCard(
+            child: MonthlyTrendCard(
+              data: trend.value ?? const <MonthlyTotal>[],
+            ),
+          ),
+          const SizedBox(height: AppDimens.gapL),
           _ConsumptionCalendar(
             month: month,
             daily: daily.value ?? const <DailyTotal>[],
@@ -57,7 +66,10 @@ class StatsPage extends ConsumerWidget {
           const SizedBox(height: AppDimens.gapL),
           _TimeBuckets(buckets: buckets.value ?? const <TimeBucketTotal>[]),
           const SizedBox(height: AppDimens.gapL),
-          _MerchantHint(top: top.value ?? const <dynamic>[]),
+          _MerchantRanking(
+            data: merchants.value ?? const <MerchantStat>[],
+            loading: merchants.isLoading,
+          ),
         ],
       ),
     );
@@ -290,25 +302,89 @@ class _BucketBar extends StatelessWidget {
 }
 
 /// 商户分析入口提示（完整商户分析页在 Phase 13 之后补）。
-class _MerchantHint extends StatelessWidget {
-  const _MerchantHint({required this.top});
+/// 商户排行 —— 点击进入商户分析页。
+class _MerchantRanking extends StatelessWidget {
+  const _MerchantRanking({required this.data, required this.loading});
 
-  final List<dynamic> top;
+  final List<MerchantStat> data;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    if (loading) {
+      return const AppCard(
+        child: SizedBox(
+          height: 60,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+    if (data.isEmpty) {
+      return const AppCard(child: Text('本月暂无商户记录'));
+    }
+
+    final total = data.fold<int>(0, (sum, item) => sum + item.totalCents);
+
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text('商户分析', style: theme.textTheme.titleMedium),
-          const SizedBox(height: AppDimens.gapS),
-          Text(
-            '按商户汇总的累计消费 / 次数 / 均值 / 月度趋势正在实现中'
-            '（Phase 13）。数据层已就绪：AnalyticsDao.merchantStat()。',
-            style: theme.textTheme.bodySmall,
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text('商户排行', style: theme.textTheme.titleMedium),
+              ),
+              Text('点击查看详情', style: theme.textTheme.labelSmall),
+            ],
           ),
+          const SizedBox(height: AppDimens.gapM),
+          for (var i = 0; i < data.length && i < 10; i++)
+            InkWell(
+              onTap: () => Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      MerchantDetailPage(merchant: data[i].merchant),
+                ),
+              ),
+              borderRadius: BorderRadius.circular(AppDimens.radiusSmall),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            data[i].merchant,
+                            style: theme.textTheme.bodyMedium,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            '${data[i].transactionCount} 笔 · '
+                            '均值 ${formatCents(data[i].averageCents, withSymbol: true)}'
+                            '${total == 0 ? '' : ' · ${((data[i].totalCents / total) * 100).toStringAsFixed(0)}%'}',
+                            style: theme.textTheme.labelSmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      formatCents(data[i].totalCents, withSymbol: true),
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 16,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

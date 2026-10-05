@@ -162,3 +162,70 @@ class TimeBucketTotal {
     return 6;
   }
 }
+
+/// 按月的收支汇总（月度趋势图用）。
+class MonthlyTotal {
+  const MonthlyTotal({
+    required this.year,
+    required this.month,
+    required this.incomeCents,
+    required this.expenseCents,
+    required this.refundCents,
+  });
+
+  final int year;
+  final int month;
+
+  final int incomeCents;
+  final int expenseCents;
+  final int refundCents;
+
+  /// 净支出 = 支出 − 退款。
+  int get netExpenseCents => expenseCents - refundCents;
+
+  /// 结余 = 收入 + 退款 − 支出。
+  int get balanceCents => incomeCents + refundCents - expenseCents;
+
+  /// `2026-10` 形式的键。
+  String get key => '$year-${month.toString().padLeft(2, '0')}';
+
+  /// 图表 X 轴短标签，如 `10月`。
+  String get shortLabel => '$month月';
+
+  /// 完整标签，如 `2026年10月`。
+  String get fullLabel => '$year年$month月';
+
+  /// 把稀疏的月度数据补齐成**连续月份**（缺失月补 0）。
+  ///
+  /// 趋势图需要连续的时间轴 —— 如果某个月没有交易就缺一根柱子，
+  /// 视觉上会误读成"那个月被跳过了"。
+  ///
+  /// [from] / [to] 为闭区间的首尾月份（`to` 也会被包含）。
+  static List<MonthlyTotal> fillGaps(
+    List<MonthlyTotal> sparse, {
+    required DateTime from,
+    required DateTime to,
+  }) {
+    final byKey = <String, MonthlyTotal>{
+      for (final item in sparse) item.key: item,
+    };
+    final result = <MonthlyTotal>[];
+    var cursor = DateTime(from.year, from.month);
+    final end = DateTime(to.year, to.month);
+    while (!cursor.isAfter(end)) {
+      final key = '${cursor.year}-${cursor.month.toString().padLeft(2, '0')}';
+      result.add(
+        byKey[key] ??
+            MonthlyTotal(
+              year: cursor.year,
+              month: cursor.month,
+              incomeCents: 0,
+              expenseCents: 0,
+              refundCents: 0,
+            ),
+      );
+      cursor = DateTime(cursor.year, cursor.month + 1);
+    }
+    return result;
+  }
+}

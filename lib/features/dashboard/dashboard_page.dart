@@ -5,6 +5,7 @@ import 'package:finance_hub/core/utils/date_range.dart';
 import 'package:finance_hub/domain/entities/normalized_transaction.dart';
 import 'package:finance_hub/domain/entities/statistics.dart';
 import 'package:finance_hub/domain/enums/transaction_type.dart';
+import 'package:finance_hub/features/category/category_detail_page.dart';
 import 'package:finance_hub/features/import/import_entry.dart';
 import 'package:finance_hub/shared/widgets/amount_text.dart';
 import 'package:finance_hub/shared/widgets/app_card.dart';
@@ -327,6 +328,14 @@ class _CategoryBreakdown extends StatelessWidget {
                 categories[i].color,
                 fallback: AppColors.chartColor(i, isDark: isDark),
               ),
+              onTap: () => Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => CategoryDetailPage(
+                    categoryId: categories[i].categoryId,
+                    categoryName: categories[i].name,
+                  ),
+                ),
+              ),
             ),
             if (i < categories.length - 1 && i < 7)
               const SizedBox(height: AppDimens.gapM),
@@ -342,50 +351,65 @@ class _CategoryRow extends StatelessWidget {
     required this.item,
     required this.totalCents,
     required this.color,
+    required this.onTap,
   });
 
   final CategoryTotal item;
   final int totalCents;
   final Color color;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ratio = item.ratioOf(totalCents);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Row(
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppDimens.radiusSmall),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            Row(
+              children: <Widget>[
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration:
+                      BoxDecoration(color: color, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: AppDimens.gapS),
+                Expanded(
+                  child: Text(item.name, style: theme.textTheme.bodyMedium),
+                ),
+                Text(
+                  '${(ratio * 100).toStringAsFixed(0)}%',
+                  style: theme.textTheme.bodySmall,
+                ),
+                const SizedBox(width: AppDimens.gapM),
+                AmountText(cents: item.amountCents, fontSize: 14),
+                Icon(
+                  Icons.chevron_right,
+                  size: 16,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ],
             ),
-            const SizedBox(width: AppDimens.gapS),
-            Expanded(
-              child: Text(item.name, style: theme.textTheme.bodyMedium),
+            const SizedBox(height: AppDimens.gapS),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: ratio.clamp(0.0, 1.0),
+                minHeight: 4,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+              ),
             ),
-            Text(
-              '${(ratio * 100).toStringAsFixed(0)}%',
-              style: theme.textTheme.bodySmall,
-            ),
-            const SizedBox(width: AppDimens.gapM),
-            AmountText(cents: item.amountCents, fontSize: 14),
           ],
         ),
-        const SizedBox(height: AppDimens.gapS),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: LinearProgressIndicator(
-            value: ratio.clamp(0.0, 1.0),
-            minHeight: 4,
-            backgroundColor: theme.colorScheme.surfaceContainerHighest,
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

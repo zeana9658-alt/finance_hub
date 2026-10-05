@@ -118,21 +118,16 @@ void main() {
     }
   });
 
-  testWidgets('切到预算页显示「暂未实现」而不是假进度条', (WidgetTester tester) async {
+  testWidgets('切到预算页展示真实空态而不是假进度条', (WidgetTester tester) async {
     await pumpApp(tester);
 
     await tester.tap(find.text('预算').last);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.textContaining('暂未实现'), findsWidgets);
-    // 预算页不能出现进度条（那是「假装已实现」的信号）
-    expect(
-      find.descendant(
-        of: find.byType(Scaffold).last,
-        matching: find.byType(LinearProgressIndicator),
-      ),
-      findsNothing,
-    );
+    // 预算已实现：空库时应展示引导文案，而不是「暂未实现」占位
+    expect(find.text('还没有设置预算'), findsOneWidget);
+    // 没有预算时不应出现进度条（那是「假装已有数据」的信号）
+    expect(find.byType(LinearProgressIndicator), findsNothing);
   });
 }

@@ -1,10 +1,11 @@
 import 'package:finance_hub/app/providers.dart';
 import 'package:finance_hub/app/theme/app_colors.dart';
+import 'package:finance_hub/features/settings/backup_page.dart';
 import 'package:finance_hub/shared/widgets/app_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 设置页 —— 隐私承诺 + 数据规模 + 外观。
+/// 设置页 —— 隐私承诺 + 数据规模 + 外观 + 功能进度。
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
@@ -13,6 +14,7 @@ class SettingsPage extends ConsumerWidget {
     final theme = Theme.of(context);
     final themeMode = ref.watch(themeModeProvider);
     final count = ref.watch(transactionCountProvider);
+    final earliest = ref.watch(earliestTransactionProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
@@ -50,7 +52,7 @@ class SettingsPage extends ConsumerWidget {
           ),
           const SizedBox(height: AppDimens.gapL),
 
-          // ─────────────── 数据规模 ───────────────
+          // ─────────────── 数据 ───────────────
           SectionHeader('数据'),
           AppCard(
             child: count.when(
@@ -62,11 +64,30 @@ class SettingsPage extends ConsumerWidget {
                 children: <Widget>[
                   _InfoRow(label: '交易记录', value: '$total 条'),
                   const SizedBox(height: AppDimens.gapS),
+                  _InfoRow(
+                    label: '最早一笔',
+                    value: earliest.value == null
+                        ? '—'
+                        : '${earliest.value!.year}-'
+                            '${earliest.value!.month.toString().padLeft(2, '0')}-'
+                            '${earliest.value!.day.toString().padLeft(2, '0')}',
+                  ),
+                  const SizedBox(height: AppDimens.gapM),
                   Text(
                     total == 0
                         ? '还没有数据。导入账单后这里会显示统计。'
                         : '数据保存在本机应用目录的 SQLite 数据库中，卸载应用即删除。',
                     style: theme.textTheme.labelSmall,
+                  ),
+                  const SizedBox(height: AppDimens.gapM),
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const BackupPage(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.backup_outlined, size: 18),
+                    label: const Text('备份与恢复'),
                   ),
                 ],
               ),
@@ -109,21 +130,25 @@ class SettingsPage extends ConsumerWidget {
           ),
           const SizedBox(height: AppDimens.gapL),
 
-          // ─────────────── 开发状态（诚实标注） ───────────────
+          // ─────────────── 功能进度（诚实标注） ───────────────
           SectionHeader('功能进度'),
           AppCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                _StatusRow(label: '微信 / 支付宝账单导入', done: true),
-                _StatusRow(label: '导入预览与逐条勾选', done: true),
-                _StatusRow(label: '指纹去重（不跨平台误判）', done: true),
-                _StatusRow(label: '三级分类引擎', done: true),
-                _StatusRow(label: '首页 Dashboard / 消费日历 / 时段分布', done: true),
-                _StatusRow(label: '账单搜索与筛选', done: true),
-                _StatusRow(label: '分类下钻页面', done: false),
-                _StatusRow(label: '预算系统', done: false),
-                _StatusRow(label: '数据备份导出 / 恢复', done: false),
+              children: const <Widget>[
+                _StatusRow(label: '微信 / 支付宝账单导入（CSV / XLSX / 粘贴）', done: true),
+                _StatusRow(label: '导入预览、逐条勾选与来源识别', done: true),
+                _StatusRow(label: '指纹去重（跨平台不误判）', done: true),
+                _StatusRow(label: '三级分类引擎（商户记忆 → 平台分类 → 关键词）', done: true),
+                _StatusRow(label: '首页 Dashboard 与月度趋势图', done: true),
+                _StatusRow(label: '分类占比与三级下钻（分类 → 二级 → 商户）', done: true),
+                _StatusRow(label: '消费日历与消费时段分布', done: true),
+                _StatusRow(label: '商户分析（累计 / 次数 / 均值 / 趋势）', done: true),
+                _StatusRow(label: '账单搜索与多条件筛选', done: true),
+                _StatusRow(label: '预算设置与进度追踪', done: true),
+                _StatusRow(label: '备份导出（JSON / CSV）与恢复', done: true),
+                _StatusRow(label: '导入预览里手动修改分类 + 商户记忆', done: false),
+                _StatusRow(label: '快速记账表单', done: false),
                 _StatusRow(label: 'AI 消费分析 / 自然语言查询', done: false),
               ],
             ),
@@ -136,11 +161,11 @@ class SettingsPage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                _InfoRow(label: '应用', value: '聚账 · FinanceHub'),
+                const _InfoRow(label: '应用', value: '聚账 · FinanceHub'),
                 const SizedBox(height: AppDimens.gapS),
-                _InfoRow(label: '版本', value: '0.1.0'),
+                const _InfoRow(label: '版本', value: '0.2.0'),
                 const SizedBox(height: AppDimens.gapS),
-                _InfoRow(label: '数据库版本', value: 'v2'),
+                const _InfoRow(label: '数据库版本', value: 'v2'),
                 const SizedBox(height: AppDimens.gapM),
                 Text(
                   '本地优先 · 金额以「分」为单位存储 · 默认不联网',
@@ -224,13 +249,17 @@ class _StatusRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Icon(
-            done ? Icons.check_circle_outline : Icons.radio_button_unchecked,
-            size: 16,
-            color: done
-                ? theme.colorScheme.primary
-                : theme.colorScheme.onSurfaceVariant,
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(
+              done ? Icons.check_circle_outline : Icons.radio_button_unchecked,
+              size: 16,
+              color: done
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(width: AppDimens.gapS),
           Expanded(

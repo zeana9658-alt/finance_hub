@@ -437,23 +437,28 @@ iOS / macOS 预留：`sqflite` 与 `file_picker` 均支持，只需 `flutter cre
 |---|---|---|---|
 | 0 | GitHub 调研 | `docs/GITHUB_RESEARCH.md` | ✅ 完成 |
 | 1 | 架构 + 数据库设计 | `ARCHITECTURE.md` `DATABASE.md` | ✅ 完成 |
-| 2 | 项目骨架 + 工具链 | `flutter create` + pubspec + theme + 路由 + git | ⏳ |
-| 3 | SQLite + 迁移 + Money | `AppDatabase`、`m001`、`Money`、测试 | ⏳ |
-| 4 | Transaction 实体 + 仓储 | `NormalizedTransaction`、`TransactionRepository`、测试 | ⏳ |
-| 5 | 解码 + 表格读取 | `TextDecoder`（含 GBK）、`Csv/Xlsx/TextTable Reader`、测试 | ⏳ |
-| 6 | 微信解析 | `WechatParser` + fixtures + 测试 | ⏳ |
-| 7 | 支付宝解析 | `AlipayParser`（含 GBK）+ fixtures + 测试 | ⏳ |
-| 8 | 来源自动识别 | `SourceDetector` + 测试 | ⏳ |
-| 9 | 去重 | `DuplicateDetector` + `unique_key` 唯一索引 + 测试 | ⏳ |
-| 10 | 导入预览 UI | 导入页 + 预览页 + 筛选 + 确认写库 | ⏳ |
-| 11 | 分类系统 | 三级分类 + 规则表 + 商户记忆 + 重跑 | ⏳ |
-| 12 | Dashboard | 首页 + 月度趋势 + 分类占比 + 下钻 | ⏳ |
-| 13 | 统计 | 消费日历 + 时段热力图 + 大额 TOP + 商户分析 | ⏳ |
-| 14 | 账单明细 | 搜索/筛选/排序/按商户汇总 | ⏳ |
-| 15 | 预算 | 预算 CRUD + 进度 + 温和预警 | ⏳ |
-| 16 | 备份 | JSON/CSV/Excel 导出 + 导入预览确认 | ⏳ |
-| 17 | AI（可选） | `FinancialSummary` + 自然语言查询 | ⏳ |
-| 18 | 最终验收 | 24 条验收标准逐条验证 | ⏳ |
+| 2 | 项目骨架 + 工具链 | `flutter create` + pubspec + theme + 路由 + git | ✅ 完成 |
+| 3 | SQLite + 迁移 + Money | `AppDatabase`、`m001`/`m002`、`Money`、测试 | ✅ 完成 |
+| 4 | Transaction 实体 + 仓储 | `NormalizedTransaction`、`TransactionRepository`、测试 | ✅ 完成 |
+| 5 | 解码 + 表格读取 | `TextDecoder`（含 GBK）、`Csv/Xlsx/TextTable Reader`、测试 | ✅ 完成 |
+| 6 | 微信解析 | `WechatParser` + fixtures + 测试 | ✅ 完成 |
+| 7 | 支付宝解析 | `AlipayParser`（含 GBK、新旧两版表头）+ fixtures + 测试 | ✅ 完成 |
+| 8 | 来源自动识别 | `SourceDetector`（表头优先于文件名）+ 测试 | ✅ 完成 |
+| 9 | 去重 | `DuplicateDetector` + 部分唯一索引 + 跨平台提示 + 测试 | ✅ 完成 |
+| 10 | 导入预览 UI | 导入页 + 预览页 + 筛选 + **手动改分类** + 确认写库 | ✅ 完成 |
+| 11 | 分类系统 | 三级分类 + 规则表 + 商户记忆 + 引擎接入真实规则 | ✅ 完成 |
+| 12 | Dashboard | 首页 + 月度趋势图（fl_chart）+ 分类占比 + 大额 TOP | ✅ 完成 |
+| 13 | 统计与下钻 | 消费日历 + 时段分布 + 商户排行 + **分类/商户三级下钻** | ✅ 完成 |
+| 14 | 账单明细 | 搜索 / 来源 / 类型 / 时间范围 / 排序（SQL 下推） | ✅ 完成 |
+| 15 | 预算 | 预算 CRUD + 执行进度 + 低饱和琥珀预警 | ✅ 完成 |
+| 16 | 备份 | JSON 完整备份 + CSV 导出 + 恢复（预览/合并/覆盖 + 分类 id 重映射） | ✅ 完成 |
+| 17 | 快速记账表单 | 手动记一笔 | ⏳ 未实现 |
+| 18 | 分类规则管理界面 | 可视化编辑规则 + 一键重跑历史 | ⏳ 未实现 |
+| 19 | AI（可选） | `FinancialSummary` + 自然语言查询 | ⏳ 未实现 |
+| 20 | 最终验收 | 24 条验收标准逐条验证 | 🟡 22/24 已覆盖 |
+
+> 当前验证：`dart analyze` 零问题；`flutter test` **148 个用例全部通过**。
+> 打包（APK / Windows）受本机工具链限制，见 `docs/ENVIRONMENT.md` §4。
 
 ---
 
