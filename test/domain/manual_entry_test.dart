@@ -102,6 +102,28 @@ void main() {
       expect(ids.length, 500);
     });
 
+    // 回归：Windows 上 DateTime.now() 分辨率约 1ms，同一批生成的时间戳几乎相同。
+    // 固定 now 就是把这种「时钟不走」的极端情况确定性地复现出来 ——
+    // 修复前（时间戳 + 20 位随机）这里会以很高概率撞号，
+    // 修复后（时间戳 + 进程内序号 + 随机）是确定性通过。
+    // 用 5000 次是为了让旧实现几乎必然失败（生日悖论下 ≈ 99.999%），
+    // 而不是留一个"偶尔才红"的假回归测试。
+    test('同一时刻批量生成单号也绝不重复（时钟分辨率回归）', () {
+      final frozen = DateTime.fromMicrosecondsSinceEpoch(1780000000000000);
+      final ids = <String>{};
+      for (var i = 0; i < 5000; i++) {
+        ids.add(ManualEntry.generateExternalId(frozen));
+      }
+      expect(ids.length, 5000);
+    });
+
+    test('单号带 MANUAL- 前缀且包含时间戳，便于排查', () {
+      final frozen = DateTime.fromMicrosecondsSinceEpoch(1780000000000000);
+      final id = ManualEntry.generateExternalId(frozen);
+      expect(id, startsWith('MANUAL-'));
+      expect(id, contains('1780000000000000'));
+    });
+
     test('金额为 0 或负数被拒绝', () {
       expect(
         () => ManualEntry.build(

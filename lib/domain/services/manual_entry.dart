@@ -21,14 +21,30 @@ class ManualEntry {
 
   static final Random _random = Random();
 
+  /// 进程内自增序号。
+  ///
+  /// **不能只靠「时间戳 + 随机数」**：Windows 上 `DateTime.now()` 的实际分辨率
+  /// 约 1ms（部分环境甚至 15ms），密集调用时 `microsecondsSinceEpoch` 几乎不变，
+  /// 只剩随机段能区分。原来随机段只有 20 位（2^20），批量生成 500 个单号时
+  /// 按生日悖论约有 **11%** 概率撞号 —— 实测在干净克隆里真的撞了，
+  /// 表现为 `generateExternalId 不重复` 偶发失败。
+  ///
+  /// 撞号的后果不是"测试变红"，而是**静默丢一笔**：`uniqueKey` 由单号派生，
+  /// 撞号的两笔会被唯一索引当成重复，第二笔直接写不进去。
+  /// 所以这里用序号把「同进程内绝不重复」升级为**确定性保证**，
+  /// 随机段只负责跨进程（多实例、重启后同刻、系统时钟回拨）的兜底。
+  static int _sequence = 0;
+
   /// 生成一个唯一的手动记账单号。
   ///
-  /// 用「微秒时间戳 + 随机数」而不是纯时间戳：同一微秒内连点两次保存
-  /// 也不会撞（虽然实际很难发生，但撞了就是静默丢一笔）。
+  /// 形如 `MANUAL-<微秒时间戳>-<进程内序号>-<随机数>`。
+  /// 保留时间戳是为了可读、可按时间排序，便于排查问题；
+  /// 没有任何代码解析这个格式，它只作为字符串参与指纹哈希。
   static String generateExternalId([DateTime? now]) {
     final stamp = (now ?? DateTime.now()).microsecondsSinceEpoch;
-    final noise = _random.nextInt(1 << 20);
-    return 'MANUAL-$stamp-$noise';
+    final sequence = _sequence++;
+    final noise = _random.nextInt(1 << 30);
+    return 'MANUAL-$stamp-$sequence-$noise';
   }
 
   /// 构造一笔手动记账交易。
