@@ -1,6 +1,7 @@
 import 'package:finance_hub/core/utils/date_range.dart';
 import 'package:finance_hub/core/utils/text_utils.dart';
 import 'package:finance_hub/data/database/app_database.dart';
+import 'package:finance_hub/domain/entities/category_update.dart';
 import 'package:finance_hub/domain/entities/normalized_transaction.dart';
 import 'package:finance_hub/domain/enums/bill_source.dart';
 import 'package:finance_hub/domain/enums/category_source.dart';
@@ -118,6 +119,17 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
+  Future<List<NormalizedTransaction>> findAll() async {
+    final db = await _database.open();
+    final rows = await db.query(
+      _table,
+      where: 'deleted_at IS NULL',
+      orderBy: 'transaction_time DESC, id DESC',
+    );
+    return rows.map(NormalizedTransaction.fromMap).toList(growable: false);
+  }
+
+  @override
   Future<int> count({bool includeDeleted = false}) async {
     final db = await _database.open();
     return _count(db, includeDeleted: includeDeleted);
@@ -168,6 +180,41 @@ class TransactionRepositoryImpl implements TransactionRepository {
       where: 'id = ?',
       whereArgs: <Object?>[id],
     );
+  }
+
+  @override
+  Future<int> applyCategoryUpdates(List<CategoryUpdate> updates) async {
+    if (updates.isEmpty) {
+      return 0;
+    }
+    final db = await _database.open();
+
+    return db.transaction<int>((txn) async {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final batch = txn.batch();
+      for (final update in updates) {
+        batch.update(
+          _table,
+          <String, Object?>{
+            'category_id': update.categoryId,
+            'subcategory_id': update.subcategoryId,
+            'category_source': update.source.code,
+            'updated_at': now,
+          },
+          where: 'id = ?',
+          whereArgs: <Object?>[update.transactionId],
+        );
+      }
+      // noResult: false 才能拿到每条语句影响的行数
+      final results = await batch.commit(noResult: false);
+      var changed = 0;
+      for (final result in results) {
+        if (result is int && result > 0) {
+          changed += result;
+        }
+      }
+      return changed;
+    });
   }
 
   Future<int> _count(

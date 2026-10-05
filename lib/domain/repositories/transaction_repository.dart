@@ -1,3 +1,4 @@
+import 'package:finance_hub/domain/entities/category_update.dart';
 import 'package:finance_hub/domain/entities/normalized_transaction.dart';
 import 'package:finance_hub/domain/services/duplicate_detector.dart';
 
@@ -33,6 +34,9 @@ abstract class TransactionRepository {
     int offset = 0,
   });
 
+  /// 全部未删除交易（**重新分类**用）。
+  Future<List<NormalizedTransaction>> findAll();
+
   /// 交易总数。
   Future<int> count({bool includeDeleted = false});
 
@@ -50,4 +54,10 @@ abstract class TransactionRepository {
     required int? subcategoryId,
     required bool markAsManual,
   });
+
+  /// 批量写回分类结果（重新分类用）。
+  ///
+  /// 返回实际被改写的行数。只在真正有变化时才应传入，
+  /// 避免无谓的写放大。
+  Future<int> applyCategoryUpdates(List<CategoryUpdate> updates);
 }

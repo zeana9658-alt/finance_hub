@@ -15,37 +15,102 @@ class RuleRepositoryImpl implements RuleRepository {
 
   final AppDatabase _database;
 
+  static const String _rules = 'category_rules';
+  static const String _merchants = 'merchant_rules';
+
+  // ───────────────────────── 读 ─────────────────────────
+
   @override
   Future<List<CategoryRule>> loadCategoryRules() async {
     final db = await _database.open();
-    final rows = await db.query('category_rules', orderBy: 'priority, id');
+    final rows = await db.query(_rules, orderBy: 'priority, id');
     return rows.map(_ruleFromMap).toList(growable: false);
   }
 
   @override
   Future<List<MerchantRule>> loadMerchantRules() async {
     final db = await _database.open();
-    final rows = await db.query('merchant_rules', orderBy: 'applied_count DESC');
-    return rows
-        .map(
-          (row) => MerchantRule(
-            id: row['id'] as int?,
-            merchantDisplay: row['merchant_display'] as String? ?? '',
-            merchantKey: row['merchant_key'] as String?,
-            source: _sourceOf(row['source'] as String?),
-            categoryId: row['category_id'] as int? ?? 0,
-            subcategoryId: row['subcategory_id'] as int?,
-            confidence: row['confidence'] as int? ?? 100,
-            appliedCount: row['applied_count'] as int? ?? 0,
-            lastAppliedAt: row['last_applied_at'] == null
-                ? null
-                : DateTime.fromMillisecondsSinceEpoch(
-                    row['last_applied_at'] as int,
-                  ),
-          ),
-        )
-        .toList(growable: false);
+    final rows = await db.query(_merchants, orderBy: 'applied_count DESC, id');
+    return rows.map(_merchantFromMap).toList(growable: false);
   }
+
+  // ───────────────────────── 规则增删改 ─────────────────────────
+
+  @override
+  Future<int> createRule(CategoryRule rule) async {
+    final db = await _database.open();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return db.insert(_rules, <String, Object?>{
+      ..._ruleToMap(rule),
+      'is_builtin': 0,
+      'hit_count': 0,
+      'created_at': now,
+      'updated_at': now,
+    }..remove('id'));
+  }
+
+  @override
+  Future<void> updateRule(CategoryRule rule) async {
+    final id = rule.id;
+    if (id == null) {
+      return;
+    }
+    final db = await _database.open();
+    await db.update(
+      _rules,
+      <String, Object?>{
+        ..._ruleToMap(rule),
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      }..remove('id'),
+      where: 'id = ?',
+      whereArgs: <Object?>[id],
+    );
+  }
+
+  @override
+  Future<void> deleteRule(int id) async {
+    final db = await _database.open();
+    // 内置规则不允许删除：即使调用方漏了检查，这里也兜一层。
+    await db.delete(
+      _rules,
+      where: 'id = ? AND is_builtin = 0',
+      whereArgs: <Object?>[id],
+    );
+  }
+
+  @override
+  Future<void> setRuleEnabled(int id, bool enabled) async {
+    final db = await _database.open();
+    await db.update(
+      _rules,
+      <String, Object?>{
+        'enabled': enabled ? 1 : 0,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'id = ?',
+      whereArgs: <Object?>[id],
+    );
+  }
+
+  @override
+  Future<void> bumpRuleHits(List<int> ruleIds) async {
+    if (ruleIds.isEmpty) {
+      return;
+    }
+    final db = await _database.open();
+    await db.transaction((txn) async {
+      final batch = txn.batch();
+      for (final id in ruleIds) {
+        batch.rawUpdate(
+          'UPDATE $_rules SET hit_count = hit_count + 1 WHERE id = ?',
+          <Object?>[id],
+        );
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
+  // ───────────────────────── 商户记忆 ─────────────────────────
 
   @override
   Future<void> rememberMerchant({
@@ -60,14 +125,13 @@ class RuleRepositoryImpl implements RuleRepository {
     }
     final db = await _database.open();
     final now = DateTime.now().millisecondsSinceEpoch;
-    final sourceCode = source?.code ?? 'any';
 
     await db.insert(
-      'merchant_rules',
+      _merchants,
       <String, Object?>{
         'merchant_key': key,
         'merchant_display': merchant.trim(),
-        'source': sourceCode,
+        'source': source?.code ?? 'any',
         'category_id': categoryId,
         'subcategory_id': subcategoryId,
         'confidence': 100,
@@ -84,26 +148,16 @@ class RuleRepositoryImpl implements RuleRepository {
   Future<void> forgetMerchant(String merchantKey) async {
     final db = await _database.open();
     await db.delete(
-      'merchant_rules',
+      _merchants,
       where: 'merchant_key = ?',
       whereArgs: <Object?>[merchantKey],
     );
   }
 
   @override
-  Future<void> bumpRuleHits(List<int> ruleIds) async {
-    if (ruleIds.isEmpty) {
-      return;
-    }
+  Future<void> clearMerchantRules() async {
     final db = await _database.open();
-    await db.transaction((txn) async {
-      for (final id in ruleIds) {
-        await txn.rawUpdate(
-          'UPDATE category_rules SET hit_count = hit_count + 1 WHERE id = ?',
-          <Object?>[id],
-        );
-      }
-    });
+    await db.delete(_merchants);
   }
 
   // ───────────────────────── 映射 ─────────────────────────
@@ -128,6 +182,44 @@ class RuleRepositoryImpl implements RuleRepository {
     );
   }
 
+  Map<String, Object?> _ruleToMap(CategoryRule rule) {
+    return <String, Object?>{
+      'id': rule.id,
+      'name': rule.name,
+      'enabled': rule.enabled ? 1 : 0,
+      'priority': rule.priority,
+      'source': rule.source?.code ?? 'any',
+      'merchant_contains': rule.merchantContains.isEmpty
+          ? null
+          : jsonEncode(rule.merchantContains),
+      'description_contains': rule.descriptionContains.isEmpty
+          ? null
+          : jsonEncode(rule.descriptionContains),
+      'amount_min_cents': rule.amountMinCents,
+      'amount_max_cents': rule.amountMaxCents,
+      'direction': rule.direction?.code ?? 'any',
+      'match_mode': rule.matchMode.code,
+      'target_category_id': rule.targetCategoryId,
+      'target_subcategory_id': rule.targetSubcategoryId,
+    };
+  }
+
+  MerchantRule _merchantFromMap(Map<String, Object?> row) {
+    return MerchantRule(
+      id: row['id'] as int?,
+      merchantDisplay: row['merchant_display'] as String? ?? '',
+      merchantKey: row['merchant_key'] as String?,
+      source: _sourceOf(row['source'] as String?),
+      categoryId: row['category_id'] as int? ?? 0,
+      subcategoryId: row['subcategory_id'] as int?,
+      confidence: row['confidence'] as int? ?? 100,
+      appliedCount: row['applied_count'] as int? ?? 0,
+      lastAppliedAt: row['last_applied_at'] == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(row['last_applied_at'] as int),
+    );
+  }
+
   static List<String> _stringList(Object? value) {
     if (value is! String || value.trim().isEmpty) {
       return const <String>[];
@@ -135,7 +227,10 @@ class RuleRepositoryImpl implements RuleRepository {
     try {
       final decoded = jsonDecode(value);
       if (decoded is List) {
-        return decoded.map((item) => '$item').toList(growable: false);
+        return decoded
+            .map((item) => '$item')
+            .where((item) => item.trim().isNotEmpty)
+            .toList(growable: false);
       }
     } on FormatException {
       // 兼容用逗号分隔的旧写法

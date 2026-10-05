@@ -1,11 +1,14 @@
 import 'package:finance_hub/app/providers.dart';
+import 'package:finance_hub/app/rule_providers.dart';
 import 'package:finance_hub/app/theme/app_colors.dart';
 import 'package:finance_hub/features/settings/backup_page.dart';
+import 'package:finance_hub/features/settings/category_rules_page.dart';
+import 'package:finance_hub/features/settings/merchant_rules_page.dart';
 import 'package:finance_hub/shared/widgets/app_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 设置页 —— 隐私承诺 + 数据规模 + 外观 + 功能进度。
+/// 设置页 —— 隐私承诺 + 数据 + 分类规则 + 外观 + 功能进度。
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
@@ -15,6 +18,8 @@ class SettingsPage extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final count = ref.watch(transactionCountProvider);
     final earliest = ref.watch(earliestTransactionProvider);
+    final ruleCount = ref.watch(categoryRulesProvider).value?.length;
+    final merchantCount = ref.watch(merchantRulesProvider).value?.length;
 
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
@@ -81,17 +86,49 @@ class SettingsPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: AppDimens.gapM),
                   OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).push<void>(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const BackupPage(),
-                      ),
-                    ),
+                    onPressed: () => _push(context, const BackupPage()),
                     icon: const Icon(Icons.backup_outlined, size: 18),
                     label: const Text('备份与恢复'),
                   ),
                 ],
               ),
             ),
+          ),
+          const SizedBox(height: AppDimens.gapL),
+
+          // ─────────────── 分类与规则 ───────────────
+          SectionHeader('分类与规则'),
+          AppListCard(
+            padding: const EdgeInsets.symmetric(vertical: AppDimens.gapS),
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.rule_folder_outlined, size: 20),
+                title: const Text('分类规则'),
+                subtitle: Text(
+                  ruleCount == null
+                      ? '加载中…'
+                      : '共 $ruleCount 条 · 可修改并重跑历史账单',
+                  style: theme.textTheme.labelSmall,
+                ),
+                trailing: const Icon(Icons.chevron_right, size: 18),
+                onTap: () => _push(context, const CategoryRulesPage()),
+              ),
+              const Divider(height: 1, indent: 56),
+              ListTile(
+                leading: const Icon(Icons.storefront_outlined, size: 20),
+                title: const Text('商户记忆'),
+                subtitle: Text(
+                  merchantCount == null
+                      ? '加载中…'
+                      : merchantCount == 0
+                          ? '还没有记忆 · 在导入预览里改一次分类就会记住'
+                          : '共 $merchantCount 个商户',
+                  style: theme.textTheme.labelSmall,
+                ),
+                trailing: const Icon(Icons.chevron_right, size: 18),
+                onTap: () => _push(context, const MerchantRulesPage()),
+              ),
+            ],
           ),
           const SizedBox(height: AppDimens.gapL),
 
@@ -140,6 +177,10 @@ class SettingsPage extends ConsumerWidget {
                 _StatusRow(label: '导入预览、逐条勾选与来源识别', done: true),
                 _StatusRow(label: '指纹去重（跨平台不误判）', done: true),
                 _StatusRow(label: '三级分类引擎（商户记忆 → 平台分类 → 关键词）', done: true),
+                _StatusRow(label: '导入预览里手动改分类 + 自动记住商户', done: true),
+                _StatusRow(label: '分类规则可视化管理', done: true),
+                _StatusRow(label: '一键重跑历史账单（不覆盖手动分类）', done: true),
+                _StatusRow(label: '商户记忆管理', done: true),
                 _StatusRow(label: '首页 Dashboard 与月度趋势图', done: true),
                 _StatusRow(label: '分类占比与三级下钻（分类 → 二级 → 商户）', done: true),
                 _StatusRow(label: '消费日历与消费时段分布', done: true),
@@ -147,7 +188,6 @@ class SettingsPage extends ConsumerWidget {
                 _StatusRow(label: '账单搜索与多条件筛选', done: true),
                 _StatusRow(label: '预算设置与进度追踪', done: true),
                 _StatusRow(label: '备份导出（JSON / CSV）与恢复', done: true),
-                _StatusRow(label: '导入预览里手动修改分类 + 商户记忆', done: false),
                 _StatusRow(label: '快速记账表单', done: false),
                 _StatusRow(label: 'AI 消费分析 / 自然语言查询', done: false),
               ],
@@ -163,7 +203,7 @@ class SettingsPage extends ConsumerWidget {
               children: <Widget>[
                 const _InfoRow(label: '应用', value: '聚账 · FinanceHub'),
                 const SizedBox(height: AppDimens.gapS),
-                const _InfoRow(label: '版本', value: '0.2.0'),
+                const _InfoRow(label: '版本', value: '0.1.0'),
                 const SizedBox(height: AppDimens.gapS),
                 const _InfoRow(label: '数据库版本', value: 'v2'),
                 const SizedBox(height: AppDimens.gapM),
@@ -176,6 +216,12 @@ class SettingsPage extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _push(BuildContext context, Widget page) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => page),
     );
   }
 }

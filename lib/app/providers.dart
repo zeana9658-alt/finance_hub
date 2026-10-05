@@ -10,15 +10,14 @@ import 'package:finance_hub/domain/entities/budget.dart';
 import 'package:finance_hub/domain/entities/category.dart';
 import 'package:finance_hub/domain/entities/normalized_transaction.dart';
 import 'package:finance_hub/domain/entities/statistics.dart';
-import 'package:finance_hub/domain/enums/category_source.dart';
 import 'package:finance_hub/domain/repositories/budget_repository.dart';
 import 'package:finance_hub/domain/repositories/category_repository.dart';
 import 'package:finance_hub/domain/repositories/rule_repository.dart';
 import 'package:finance_hub/domain/repositories/transaction_repository.dart';
 import 'package:finance_hub/domain/services/backup_service.dart';
 import 'package:finance_hub/domain/services/categorization_engine.dart';
+import 'package:finance_hub/domain/services/engine_builder.dart';
 import 'package:finance_hub/domain/services/import_pipeline.dart';
-import 'package:finance_hub/domain/services/platform_category_map.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -109,56 +108,12 @@ final categoryNameMapProvider = FutureProvider<Map<int, String>>(
 /// 就能拿到新引擎重新分类（brief 第 11 条的「规则可重跑」）。
 final categorizationEngineProvider =
     FutureProvider<CategorizationEngine>((Ref ref) async {
-  final rules = await ref.watch(ruleRepositoryProvider).loadCategoryRules();
-  final merchants = await ref.watch(ruleRepositoryProvider).loadMerchantRules();
-  final categories = await ref.watch(categoryRepositoryProvider).loadAll();
-
-  final byId = <int, Category>{};
-  for (final category in categories) {
-    final id = category.id;
-    if (id != null) {
-      byId[id] = category;
-    }
-  }
-
-  // 建立「分类名路径 → id」索引：一级用 `名称`，二级用 `父名/名称`
-  final idByPath = <String, int>{};
-  for (final category in categories) {
-    final id = category.id;
-    if (id == null) {
-      continue;
-    }
-    final parentId = category.parentId;
-    if (parentId == null) {
-      idByPath[category.name] = id;
-      continue;
-    }
-    final parent = byId[parentId];
-    if (parent != null) {
-      idByPath['${parent.name}/${category.name}'] = id;
-    }
-  }
-
-  // 把平台分类名映射解析成本机 id
-  final platformMap = <String, CategoryAssignment>{};
-  for (final entry in platformCategoryMap.entries) {
-    final topId = idByPath[entry.value.first];
-    if (topId == null) {
-      continue;
-    }
-    final subId =
-        entry.value.length > 1 ? idByPath[entry.value.join('/')] : null;
-    platformMap[entry.key] = CategoryAssignment(
-      source: CategorySource.platform,
-      categoryId: topId,
-      subcategoryId: subId,
-    );
-  }
-
-  return CategorizationEngine(
-    rules: rules,
-    merchantRules: merchants,
-    platformCategoryMap: platformMap,
+  // 构建逻辑抽在 buildCategorizationEngine 里，保证 provider 与测试
+  // 走的是同一条路径（否则容易出现「测试过、线上不过」）。
+  return buildCategorizationEngine(
+    rules: await ref.watch(ruleRepositoryProvider).loadCategoryRules(),
+    merchantRules: await ref.watch(ruleRepositoryProvider).loadMerchantRules(),
+    categories: await ref.watch(categoryRepositoryProvider).loadAll(),
   );
 });
 

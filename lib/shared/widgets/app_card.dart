@@ -189,3 +189,52 @@ class NotImplementedView extends StatelessWidget {
     );
   }
 }
+
+/// 用来装 [ListTile] 的卡片。
+///
+/// **为什么不能直接用 [AppCard]**：[AppCard] 用 `Container + BoxDecoration`
+/// 画背景，而 `ListTile` 把背景与水波纹画在**最近的 Material 祖先**上，
+/// 中间夹一个带背景色的 `DecoratedBox` 会让水波纹被盖住 ——
+/// Flutter 会直接抛断言：
+/// `ListTile background color or ink splashes may be invisible`。
+///
+/// 这里改用 `Material` 承载背景与形状，既满足 ListTile 的要求，
+/// 外观又与 [AppCard] 保持一致（同圆角、同边框、同极轻阴影）。
+class AppListCard extends StatelessWidget {
+  const AppListCard({
+    required this.children,
+    super.key,
+    this.padding = EdgeInsets.zero,
+  });
+
+  final List<Widget> children;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppDimens.radiusCard),
+        boxShadow: softShadow(isDark: isDark),
+      ),
+      child: Material(
+        color: theme.colorScheme.surface,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDimens.radiusCard),
+          side: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Padding(
+          padding: padding,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: children,
+          ),
+        ),
+      ),
+    );
+  }
+}
