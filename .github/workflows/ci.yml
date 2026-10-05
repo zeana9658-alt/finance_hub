@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+# 说明：这里只跑「静态分析 + 测试」，不跑 APK 构建。
+#
+# 原因是本项目依赖链里有原生代码（`jni` 插件会编译 libdartjni.so），
+# 需要 NDK 28.2.13676358 + CMake 3.22.1；而 android/gradle.properties 里
+# 设了 android.builder.sdkDownload=false（那个开关是为了避免 sdkmanager 在
+# 受限网络下永久挂起），AGP 不会自动下载缺失的 NDK，
+# 于是 GitHub 默认 runner 上必然构建失败。
+# 与其挂一个长期红色的 build job，不如让 CI 只做它能可靠做到的事。
+# 本地/发版时的 APK 构建步骤见 docs/ENVIRONMENT.md。
+
+jobs:
+  analyze-and-test:
+    name: 静态分析 + 测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.6'
+          channel: stable
+          cache: true
+
+      - name: 拉取依赖
+        run: flutter pub get
+
+      - name: 静态分析（本项目当前零 error / 零 warning / 零 info）
+        run: dart analyze --fatal-infos
+
+      - name: 测试
+        # 注意：这里用 --no-pub 是安全的（测试不碰 Android 插件注册表）。
+        # 但 flutter build apk **绝不能**加 --no-pub，见 docs/ENVIRONMENT.md 坑 4。
+        run: flutter test --no-pub --reporter expanded
