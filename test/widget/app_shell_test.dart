@@ -17,6 +17,11 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 /// - 暗色模式正常渲染
 /// - 大字体（textScaleFactor 1.5）无溢出
 /// - 未实现的功能必须显式声明，不能伪装
+///
+/// ⚠️ 关键点：`flutter_test` 默认在 **假时钟** 下运行，
+/// 而 SQLite 查询是**真实异步 I/O**，在假时钟下永远不会完成
+/// （`pumpAndSettle` 会一直等动画结束而超时）。
+/// 因此这里统一用 `tester.runAsync` 让真实异步跑完，再用 `pump` 渲染。
 void main() {
   late Directory tempDir;
   late AppDatabase database;
@@ -30,6 +35,7 @@ void main() {
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('finance_hub_widget_');
     database = AppDatabase(databasePath: p.join(tempDir.path, 'widget.sqlite'));
+    // 预先把数据库打开，避免首帧还在建表
     await database.open();
   });
 
@@ -37,19 +43,27 @@ void main() {
     await database.close();
   });
 
-  /// 用临时文件数据库替换真实数据库，其余保持生产装配。
   Widget harness() {
     return ProviderScope(
-      overrides: <Override>[
+      overrides: [
         appDatabaseProvider.overrideWithValue(database),
       ],
       child: const FinanceHubApp(),
     );
   }
 
+  /// 挂载 App 并等待真实数据库查询完成。
+  Future<void> pumpApp(WidgetTester tester, {Widget? wrapper}) async {
+    await tester.runAsync(() async {
+      await tester.pumpWidget(wrapper ?? harness());
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+
   testWidgets('空数据时首页展示引导文案而不是崩溃', (WidgetTester tester) async {
-    await tester.pumpWidget(harness());
-    await tester.pumpAndSettle();
+    await pumpApp(tester);
 
     expect(tester.takeException(), isNull);
     expect(find.text('还没有任何账单'), findsOneWidget);
@@ -61,8 +75,7 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(harness());
-    await tester.pumpAndSettle();
+    await pumpApp(tester);
 
     expect(tester.takeException(), isNull);
     expect(find.text('首页'), findsWidgets);
@@ -73,33 +86,32 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(
-      MediaQuery(
+    await pumpApp(
+      tester,
+      wrapper: MediaQuery(
         data: const MediaQueryData(textScaler: TextScaler.linear(1.5)),
         child: harness(),
       ),
     );
-    await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
   });
 
   testWidgets('暗色模式（系统偏好）正常渲染', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      MediaQuery(
+    await pumpApp(
+      tester,
+      wrapper: MediaQuery(
         data: const MediaQueryData(platformBrightness: Brightness.dark),
         child: harness(),
       ),
     );
-    await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
     expect(find.text('还没有任何账单'), findsOneWidget);
   });
 
   testWidgets('五个底部导航项都存在', (WidgetTester tester) async {
-    await tester.pumpWidget(harness());
-    await tester.pumpAndSettle();
+    await pumpApp(tester);
 
     for (final label in <String>['首页', '账单', '统计', '预算', '设置']) {
       expect(find.text(label), findsWidgets, reason: '缺少导航项 $label');
@@ -107,13 +119,20 @@ void main() {
   });
 
   testWidgets('切到预算页显示「暂未实现」而不是假进度条', (WidgetTester tester) async {
-    await tester.pumpWidget(harness());
-    await tester.pumpAndSettle();
+    await pumpApp(tester);
 
     await tester.tap(find.text('预算').last);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.textContaining('暂未实现'), findsWidgets);
-    expect(find.byType(LinearProgressIndicator), findsNothing);
+    // 预算页不能出现进度条（那是「假装已实现」的信号）
+    expect(
+      find.descendant(
+        of: find.byType(Scaffold).last,
+        matching: find.byType(LinearProgressIndicator),
+      ),
+      findsNothing,
+    );
   });
 }

@@ -49,7 +49,7 @@ abstract class BillParser {
       throw const HeaderNotFoundException();
     }
 
-    final transactions = <NormalizedTransaction>[];
+    final parsed = <ParsedTransaction>[];
     final errors = <ParseError>[];
     var dataRows = 0;
 
@@ -66,7 +66,13 @@ abstract class BillParser {
       try {
         final transaction = normalizeRow(row);
         if (transaction != null) {
-          transactions.add(transaction);
+          parsed.add(
+            ParsedTransaction(
+              rowNumber: rowNumber,
+              transaction: transaction,
+              rawSummary: row.rawSummary,
+            ),
+          );
         }
       } on ParseException catch (error) {
         errors.add(
@@ -171,6 +177,7 @@ abstract class BillParser {
     required String transactionTimeRaw,
     required TransactionType transactionType,
     required String transactionTypeRaw,
+    String platformCategory = '',
     required int amountCents,
     required String merchant,
     required String description,

@@ -63,6 +63,12 @@ class NormalizedTransaction {
   /// 平台原始类型文本，如微信的「商户消费」、支付宝的「即时到账」。
   final String transactionTypeRaw;
 
+  /// 平台自带的分类文本，如支付宝新版的「交易分类」（餐饮美食 / 交通出行 …）。
+  ///
+  /// 用于分类引擎的**第二优先级**：平台原始分类映射
+  /// （见 brief 第 10 条、docs/ARCHITECTURE.md §3.1）。
+  final String platformCategory;
+
   /// 金额，单位「分」，**恒为非负**。
   final int amountCents;
 
@@ -136,6 +142,7 @@ class NormalizedTransaction {
     String? transactionTimeRaw,
     TransactionType? transactionType,
     String? transactionTypeRaw,
+    String? platformCategory,
     int? amountCents,
     String? currency,
     String? merchant,
@@ -164,6 +171,7 @@ class NormalizedTransaction {
       transactionTimeRaw: transactionTimeRaw ?? this.transactionTimeRaw,
       transactionType: transactionType ?? this.transactionType,
       transactionTypeRaw: transactionTypeRaw ?? this.transactionTypeRaw,
+      platformCategory: platformCategory ?? this.platformCategory,
       amountCents: amountCents ?? this.amountCents,
       currency: currency ?? this.currency,
       merchant: merchant ?? this.merchant,

@@ -23,14 +23,16 @@ class CsvReader {
       return RawTable(const <List<String>>[], origin: origin);
     }
 
-    final converter = CsvToListConverter(
-      shouldParseNumbers: false,
-      eol: '\n',
+    final converter = Csv(
+      fieldDelimiter: ',',
+      autoDetect: false,
+      dynamicTyping: false,
+      skipEmptyLines: true,
     );
 
     final List<List<dynamic>> decoded;
     try {
-      decoded = converter.convert(cleaned);
+      decoded = converter.decode(cleaned);
     } on Exception {
       // 解析器抛异常时退化为逐行按逗号切分，保证不整体失败。
       return _fallbackSplit(cleaned, origin);

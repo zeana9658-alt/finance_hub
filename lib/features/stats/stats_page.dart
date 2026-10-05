@@ -1,4 +1,5 @@
 import 'package:finance_hub/app/providers.dart';
+import 'package:finance_hub/app/theme/app_colors.dart';
 import 'package:finance_hub/core/money/money.dart';
 import 'package:finance_hub/domain/entities/statistics.dart';
 import 'package:finance_hub/shared/widgets/app_card.dart';
@@ -51,12 +52,12 @@ class StatsPage extends ConsumerWidget {
         children: <Widget>[
           _ConsumptionCalendar(
             month: month,
-            daily: daily.valueOrNull ?? const <DailyTotal>[],
+            daily: daily.value ?? const <DailyTotal>[],
           ),
           const SizedBox(height: AppDimens.gapL),
-          _TimeBuckets(buckets: buckets.valueOrNull ?? const <TimeBucketTotal>[]),
+          _TimeBuckets(buckets: buckets.value ?? const <TimeBucketTotal>[]),
           const SizedBox(height: AppDimens.gapL),
-          _MerchantHint(top: top.valueOrNull ?? const <dynamic>[]),
+          _MerchantHint(top: top.value ?? const <dynamic>[]),
         ],
       ),
     );

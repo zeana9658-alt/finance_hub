@@ -98,8 +98,7 @@ class AppTheme {
           TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: textSecondary),
         ),
         iconTheme: WidgetStatePropertyAll<IconThemeData>(
-          color: textSecondary,
-          size: 22,
+          IconThemeData(color: textSecondary, size: 22),
         ),
       ),
       dividerTheme: DividerThemeData(

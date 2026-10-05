@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:charset/charset.dart' as charset;
 import 'package:finance_hub/import/decode/text_decoder.dart';
 import 'package:finance_hub/import/table/csv_reader.dart';
 import 'package:finance_hub/import/table/raw_table.dart';
@@ -26,18 +27,25 @@ void main() {
 
     test('GBK 内容 → 回退到 gbk 且不乱码', () {
       const source = '交易时间,交易对方,金额（元）\n2026-06-01 08:00:00,示例咖啡,28.00';
-      final bytes = _encodeGbk(source);
+      // 用 charset 包自己的编码器构造 GBK 字节，保证测试数据本身是正确的 GBK
+      final bytes = charset.gbk.encode(source);
+      // 前提校验：这份字节确实不是合法 UTF-8（否则测不到回退分支）
+      expect(() => utf8.decode(bytes), throwsA(isA<FormatException>()));
+
       final decoded = TextDecoder.decode(bytes);
       expect(decoded.encoding, 'gbk');
       expect(decoded.text, contains('交易时间'));
       expect(decoded.text, contains('示例咖啡'));
+      expect(decoded.text, contains('金额'));
     });
 
-    test('GBK 夹具文件能被正确解码', () {
-      final decoded = TextDecoder.decode(FixtureLoader.bytes('mock_alipay_gbk.csv'));
+    test('GBK 夹具文件能被正确解码（真实文件字节）', () {
+      final decoded =
+          TextDecoder.decode(FixtureLoader.bytes('mock_alipay_gbk.csv'));
       expect(decoded.encoding, 'gbk');
       expect(decoded.text, contains('支付宝交易记录明细查询'));
       expect(decoded.text, contains('示例便利店'));
+      expect(decoded.text, contains('交易创建时间'));
     });
 
     test('空输入不崩溃', () {
@@ -97,36 +105,4 @@ void main() {
       expect(table.headText(count: 1), contains('交易时间'));
     });
   });
-}
-
-/// 极简 GBK 编码器 —— 只用于测试构造（避免测试依赖 charset 包的编码方向）。
-///
-/// 通过把 UTF-8 文本写入一个 GBK 编码的字节序列来构造测试数据；
-/// 这里借助 Dart 的 `latin1` 不可行，因此直接用查表法覆盖测试所需的字符集。
-List<int> _encodeGbk(String input) {
-  const table = <String, List<int>>{
-    '交': <int>[0xBD, 0xBB], '易': <int>[0xD2, 0xD7], '时': <int>[0xCA, 0xB1],
-    '间': <int>[0xBC, 0xE4], '对': <int>[0xB6, 0xD4], '方': <int>[0xB7, 0xBD],
-    '金': <int>[0xBD, 0xF0], '额': <int>[0xB6, 0xEE], '（': <int>[0xA3, 0xA8],
-    '）': <int>[0xA3, 0xA9], '示': <int>[0xCA, 0xBE], '例': <int>[0xC0, 0xFD],
-    '咖': <int>[0xBF, 0xC8], '啡': <int>[0xE0, 0xA9], ',': <int>[0x2C],
-    '\n': <int>[0x0A], '.': <int>[0x2E], '-': <int>[0x2D], ':': <int>[0x3A],
-    ' ': <int>[0x20],
-  };
-  final out = <int>[];
-  for (final rune in input.runes) {
-    final char = String.fromCharCode(rune);
-    final mapped = table[char];
-    if (mapped != null) {
-      out.addAll(mapped);
-    } else if (rune < 0x80) {
-      out.add(rune);
-    } else if (rune >= 0x30 && rune <= 0x39) {
-      out.add(rune);
-    } else {
-      // 未覆盖字符用 '?' 占位，测试用例只使用上表中的字符
-      out.add(0x3F);
-    }
-  }
-  return out;
 }

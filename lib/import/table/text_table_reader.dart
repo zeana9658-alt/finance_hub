@@ -32,15 +32,17 @@ class TextTableReader {
       return RawTable(rows, origin: origin);
     }
 
-    final converter = CsvToListConverter(
-      shouldParseNumbers: false,
-      eol: '\n',
+    final converter = Csv(
+      fieldDelimiter: ',',
+      autoDetect: false,
+      dynamicTyping: false,
+      skipEmptyLines: true,
     );
-    final decoded = converter.convert(cleaned);
+    final decoded = converter.decode(cleaned);
     final rows = decoded
         .map(
-          (row) => row
-              .map((cell) => cell == null ? '' : cell.toString().trim())
+          (List<dynamic> row) => row
+              .map((dynamic cell) => cell == null ? '' : cell.toString().trim())
               .toList(),
         )
         .toList();

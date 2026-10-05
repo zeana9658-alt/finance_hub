@@ -45,15 +45,25 @@ class RawBillRow {
   /// 整行是否为空（用于跳过空行）。
   bool get isBlank => rawCells.every((cell) => cell.trim().isEmpty);
 
-  /// 是否是分隔线行，如 `----------------------交易记录明细列表----------------------`。
+  /// 是否是分隔线行。
   ///
-  /// 支付宝 CSV 末尾会有这样一行，不是数据。
+  /// 微信/支付宝账单的首尾会有这种行：
+  /// ```text
+  /// ----------------------微信支付账单明细列表--------------------
+  /// ---------------------------------交易记录明细列表结束---------------------------------
+  /// ```
+  /// 它们**中间夹着中文**，所以不能只判断「整行是否全是符号」。
+  ///
+  /// 判定条件（两个都要满足，避免误伤正常数据）：
+  /// 1. 非空单元格数 ≤ 2（分隔行通常只有一个单元格）
+  /// 2. 存在 5 个以上连续横线 / 等号
   bool get isSeparator {
-    final joined = rawCells.join().trim();
-    if (joined.isEmpty) {
+    final nonEmpty = rawCells.where((cell) => cell.trim().isNotEmpty).length;
+    if (nonEmpty == 0 || nonEmpty > 2) {
       return false;
     }
-    return RegExp(r'^[-—=*_·・\s]+$').hasMatch(joined);
+    final joined = rawCells.join().trim();
+    return RegExp(r'[-—=]{5,}').hasMatch(joined);
   }
 
   /// 原始内容摘要，用于错误提示与预览列表（取前 4 个非空单元格）。

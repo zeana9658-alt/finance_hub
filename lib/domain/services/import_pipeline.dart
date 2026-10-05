@@ -1,5 +1,6 @@
 import 'package:finance_hub/core/errors/app_error.dart';
 import 'package:finance_hub/core/utils/hash_utils.dart';
+import 'package:finance_hub/domain/entities/normalized_transaction.dart';
 import 'package:finance_hub/domain/enums/bill_source.dart';
 import 'package:finance_hub/domain/services/categorization_engine.dart';
 import 'package:finance_hub/domain/services/duplicate_detector.dart';

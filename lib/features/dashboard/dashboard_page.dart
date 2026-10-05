@@ -82,16 +82,16 @@ class DashboardPage extends ConsumerWidget {
             ),
             children: <Widget>[
               _HeroSummary(
-                summary: summary.valueOrNull ?? PeriodSummary.empty,
-                previous: previous.valueOrNull ?? PeriodSummary.empty,
+                summary: summary.value ?? PeriodSummary.empty,
+                previous: previous.value ?? PeriodSummary.empty,
                 loading: summary.isLoading,
               ),
               const SizedBox(height: AppDimens.gapL),
-              _CategoryBreakdown(categories: categories.valueOrNull ?? const <CategoryTotal>[]),
+              _CategoryBreakdown(categories: categories.value ?? const <CategoryTotal>[]),
               const SizedBox(height: AppDimens.gapL),
-              _TopExpenses(items: topExpenses.valueOrNull ?? const <NormalizedTransaction>[]),
+              _TopExpenses(items: topExpenses.value ?? const <NormalizedTransaction>[]),
               const SizedBox(height: AppDimens.gapL),
-              _RecentTransactions(items: recent.valueOrNull ?? const <NormalizedTransaction>[]),
+              _RecentTransactions(items: recent.value ?? const <NormalizedTransaction>[]),
             ],
           );
         },
@@ -113,7 +113,11 @@ class _MonthSwitcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 注意：这里必须让月份文本可收缩。
+    // AppBar 给 title 的宽度有限，而大字体（1.5×）下
+    // 「2026年10月」+ 两个 IconButton 会超出可用宽度导致 RenderFlex 溢出。
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         IconButton(
           onPressed: onPrevious,
@@ -121,7 +125,13 @@ class _MonthSwitcher extends StatelessWidget {
           tooltip: '上个月',
           visualDensity: VisualDensity.compact,
         ),
-        Text('${month.year}年${month.month}月'),
+        Flexible(
+          child: Text(
+            '${month.year}年${month.month}月',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
         IconButton(
           onPressed: onNext,
           icon: const Icon(Icons.chevron_right),

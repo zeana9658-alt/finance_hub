@@ -1,8 +1,6 @@
 import 'dart:io';
 
 import 'package:finance_hub/data/database/app_database.dart';
-import 'package:finance_hub/data/database/migrations/m001_initial.dart';
-import 'package:finance_hub/data/database/migrations/m002_seed_categories.dart';
 import 'package:finance_hub/data/repositories/transaction_repository_impl.dart';
 import 'package:finance_hub/domain/entities/normalized_transaction.dart';
 import 'package:finance_hub/domain/enums/bill_source.dart';

@@ -7,7 +7,6 @@ import 'package:finance_hub/core/errors/app_error.dart';
 import 'package:finance_hub/core/money/money.dart';
 import 'package:finance_hub/domain/enums/bill_source.dart';
 import 'package:finance_hub/domain/enums/transaction_type.dart';
-import 'package:finance_hub/domain/services/import_pipeline.dart';
 import 'package:finance_hub/import/detect/source_detector.dart';
 import 'package:finance_hub/import/models/import_candidate.dart';
 import 'package:finance_hub/import/models/import_preview.dart';
@@ -63,12 +62,12 @@ class ImportEntry {
   static Future<void> _pickFile(BuildContext context, WidgetRef ref) async {
     final messenger = ScaffoldMessenger.of(context);
 
-    FilePickerResult? picked;
+    List<PlatformFile> picked;
     try {
-      picked = await FilePicker.platform.pickFiles(
+      // file_picker 13 起改为静态方法，返回 List<PlatformFile>（取消时为空列表）
+      picked = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: <String>['csv', 'xlsx', 'xls', 'txt'],
-        withData: true,
       );
     } on Exception catch (error) {
       messenger.showSnackBar(
@@ -77,16 +76,22 @@ class ImportEntry {
       return;
     }
 
-    if (picked == null || picked.files.isEmpty) {
+    if (picked.isEmpty) {
       return;
     }
 
-    final file = picked.files.first;
-    final bytes = file.bytes;
-    if (bytes == null) {
+    final file = picked.first;
+    final Uint8List bytes;
+    try {
+      bytes = await file.xFile.readAsBytes();
+    } on Exception catch (error) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('无法读取文件内容')),
+        SnackBar(content: Text('无法读取文件内容：$error')),
       );
+      return;
+    }
+
+    if (!context.mounted) {
       return;
     }
 
@@ -95,9 +100,6 @@ class ImportEntry {
       ref,
       bytes: bytes,
       path: file.name,
-      origin: file.name,
-      method: 'file',
-      fileSize: file.size,
     );
   }
 
@@ -155,9 +157,6 @@ class ImportEntry {
     WidgetRef ref, {
     required Uint8List bytes,
     required String path,
-    required String origin,
-    required String method,
-    int? fileSize,
   }) async {
     final pipeline = ref.read(importPipelineProvider);
     try {
@@ -176,7 +175,6 @@ class ImportEntry {
         error,
         bytes: bytes,
         path: path,
-        origin: origin,
       );
     }
   }
@@ -188,7 +186,6 @@ class ImportEntry {
     AppException error, {
     Uint8List? bytes,
     String? path,
-    String? origin,
     String? text,
   }) async {
     if (error is! SourceNotDeterminedException) {
@@ -399,7 +396,7 @@ class _ImportPreviewPageState extends ConsumerState<_ImportPreviewPage> {
                       AppDimens.pagePadding,
                     ),
                     itemCount: filtered.length,
-                    separatorBuilder: (_, __) =>
+                    separatorBuilder: (_, _) =>
                         const SizedBox(height: AppDimens.gapS),
                     itemBuilder: (context, index) => _CandidateTile(
                       candidate: filtered[index],
@@ -553,12 +550,7 @@ class _StatsPanel extends StatelessWidget {
   }
 }
 
-/// 仅供 [_SumCell] 使用的类型别名，避免在此文件引入枚举。
-typedef TransactionTypeShim = _TxType;
-
-/// 与 `TransactionType` 取值一致的极简枚举，仅用于着色。
-enum _TxType { income, expense }
-
+/// 收入 / 支出的合计展示格。
 class _SumCell extends StatelessWidget {
   const _SumCell({
     required this.label,
@@ -568,13 +560,13 @@ class _SumCell extends StatelessWidget {
 
   final String label;
   final int cents;
-  final _TxType type;
+  final TransactionType type;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final color = type == _TxType.income
+    final color = type == TransactionType.income
         ? (isDark ? const Color(0xFF8FBFA0) : const Color(0xFF5B8C6E))
         : (isDark ? const Color(0xFFD99B7E) : const Color(0xFFC67B5C));
 

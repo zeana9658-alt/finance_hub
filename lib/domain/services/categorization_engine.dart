@@ -205,8 +205,8 @@ class CategorizationEngine {
         return (merchantHit ?? false) || (descriptionHit ?? false);
       case RuleMatchMode.all:
         final hits = <bool>[
-          if (merchantHit != null) merchantHit,
-          if (descriptionHit != null) descriptionHit,
+          ?merchantHit,
+          ?descriptionHit,
         ];
         return hits.isNotEmpty && hits.every((hit) => hit);
       case RuleMatchMode.merchantAndDescription:

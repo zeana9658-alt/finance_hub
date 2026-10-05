@@ -56,7 +56,6 @@ class _BillsPageState extends ConsumerState<BillsPage> {
   @override
   Widget build(BuildContext context) {
     final range = _resolveRange();
-    final dao = ref.watch(analyticsDaoProvider);
     final bills = ref.watch(_billsQueryProvider(_BillQuery(
       keyword: _keyword,
       source: _source,
@@ -132,7 +131,7 @@ class _BillsPageState extends ConsumerState<BillsPage> {
                     88,
                   ),
                   itemCount: items.length,
-                  separatorBuilder: (_, __) =>
+                  separatorBuilder: (_, _) =>
                       const SizedBox(height: AppDimens.gapS),
                   itemBuilder: (context, index) =>
                       _BillTile(transaction: items[index]),
