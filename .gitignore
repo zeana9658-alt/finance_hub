@@ -88,12 +88,12 @@ android/local.properties
 *.keystore
 !android/key.properties.example
 
-# 构建产物
-dist/*.apk
-dist/*.aab
+# 构建产物（含 dist/archive/ 下的历史构建）
+dist/**/*.apk
+dist/**/*.aab
 
 # 备份文件
 *.json.bak
 
 # 校验和属于构建产物，不入库（避免留下已作废 APK 的指纹）
-dist/*.sha256
+dist/**/*.sha256

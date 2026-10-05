@@ -22,7 +22,7 @@ Flutter 已通过 `flutter config` 记住 SDK 与 JDK 路径，无需每次重�
 
 ---
 
-## 2. 四个必踩的坑（务必先看）
+## 2. 六个必踩的坑（务必先看）
 
 ### 坑 1：`http_proxy` 会让 `flutter pub get` 假死
 
@@ -65,6 +65,26 @@ export NO_PROXY="$no_proxy"
 > 先怀疑通信链路，不要先怀疑被测代码。用 `--reporter expanded` 能看到
 > 卡在哪个用例，用 `timeout` 包一层避免无限等待。
 
+### 坑 1.6：两个 flutter 命令**不能并行** —— 会死在启动锁上
+
+Flutter 用 `bin/cache/lockfile` 做启动锁。前一个命令（哪怕是被中断、
+被 kill 掉的）没退干净时，后一个会停在：
+
+```
+Waiting for another flutter command to release the startup lock...
+```
+
+**而且没有任何超时**，看起来就像"构建卡住了"。表现极具误导性：
+`build/` 下不再有新文件、进程列表里看不到 java/dart，但也不报错 ——
+很容易被误判成"Gradle 在慢速下载"或"网络问题"。
+
+**判断与对策**：
+
+- 怀疑卡锁时先跑 `flutter --version`：如果它也被挡住，就是锁。
+- **一次只跑一个 flutter 命令。** 不要为了"省时间"并行开构建。
+- 后台任务被中断后，先确认进程真的退出了，再发起下一次构建。
+- 锁是 OS 级文件锁，进程退出即释放，**不需要手工删 `lockfile`**。
+
 ### 坑 2：pub 的包数在完成前**不会增长**——不要中途杀进程
 
 pub 把包解压到 `%LOCALAPPDATA%\Pub\Cache\_temp\dirXXXX`，
@@ -84,6 +104,51 @@ Git Bash 里没有这个 Windows 变量，Flutter 工具会直接报错退出：
 ```bash
 env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' flutter build apk
 ```
+
+### 坑 4：`flutter build apk` **绝不能**加 `--no-pub`
+
+本项目最阴的一个坑：跑测试加 `--no-pub` 是好习惯，**构建 APK 加它会直接编译失败**。
+
+```
+错误: 程序包dev.flutter.plugins.integration_test不存在
+      GeneratedPluginRegistrant.java:24
+```
+
+**机理**（读 flutter_tools 源码确认，见 `runner/flutter_command.dart` 与 `commands/packages.dart`）：
+
+1. Android 的插件注册表 `android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java`
+   由 Dart 侧生成，入口 `regeneratePlatformSpecificToolingIfApplicable()` 第一句是
+   ```dart
+   if (!shouldRunPub) {
+     return;
+   }
+   ```
+   —— **`--no-pub` 会完全跳过注册表的重新生成**，直接用磁盘上那份旧的。
+2. `flutter pub get` 也会生成它，但传的是
+   ```dart
+   releaseMode: ignoreReleaseModeSinceItsNotABuildAndHopeItWorks
+   ```
+   （变量名是官方原话）。`releaseMode: false` 时**不过滤 dev 依赖**，
+   于是 `dev_dependencies` 里的 `integration_test` 被写进注册表。
+3. `integration_test` 是 SDK 提供的 dev 插件，release 构建里没有这个包 →
+   javac 报"程序包不存在"。
+
+于是形成一条很坏的因果链：**任何一次 `flutter pub get`（包括 `flutter test`
+隐式触发的）都会把注册表写脏，而带 `--no-pub` 的 release 构建会原样用这份脏文件。**
+
+**对策**：
+
+- 构建 APK **不要**加 `--no-pub`。`flutter build apk --release` 会以
+  `releaseMode: true` 重新生成注册表，自动过滤掉 dev 依赖插件。
+- 自查（期望输出 `0`）：
+  ```bash
+  grep -c integration_test \
+    android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+  ```
+
+> 顺带说明：**`flutter test --no-pub` 是安全的**（测试不碰 Android 注册表），
+> 所以"测试用 `--no-pub`、构建不用"这个组合是对的 —— 不要因为踩了这个坑
+> 就把测试的 `--no-pub` 也去掉。
 
 ---
 
@@ -162,7 +227,11 @@ sdkmanager 的仓库地址**硬编码 `dl.google.com`**，无法改镜像。
 ```
 finance_hub/dist/finance_hub-v0.1.1-release.apk
 finance_hub/dist/finance_hub-v0.1.1-release.apk.sha256
+finance_hub/dist/archive/          # 历史构建，仅留档，不要安装
 ```
+
+> `dist/archive/` 里的 `finance_hub-v0.1.0-release.apk` 是**修复前**的构建
+> （手机端会「数据库打开失败」），只作为对照保留，**不要安装到手机**。
 
 | 项 | 值 |
 |---|---|

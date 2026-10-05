@@ -102,7 +102,10 @@ dart analyze
 # ⚠️ Git Bash 缺 %PROGRAMFILES(X86)%，需要显式注入
 env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' flutter test
 
-# 出 Android APK（约 12 分钟）
+# 出 Android APK（冷启动约 12 分钟，增量约 1 分钟）
+# ⚠️ 这里**不要**加 --no-pub！构建 APK 时它会让插件注册表不重新生成，
+#    直接把 dev 依赖插件（integration_test）编进 release，导致 javac 报
+#    「程序包 dev.flutter.plugins.integration_test 不存在」。详见 docs/ENVIRONMENT.md 坑 4
 env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' \
   flutter build apk --release
 ```
@@ -113,11 +116,12 @@ env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' \
 > - ✅ `flutter build apk --release`：**构建成功**，产物已验签
 >   - `dist/finance_hub-v0.1.1-release.apk`（arm64-v8a + armeabi-v7a + x86_64）
 >   - 正式 release 签名，**零危险权限**
+>   - 上一版（无修复、手机端打不开数据库的 0.1.0）已挪到 `dist/archive/`，**不要安装**
 > - ⚠️ **Android 上不得执行 `PRAGMA journal_mode = WAL`** —— 会让 `openDatabase` 直接抛异常，
 >   手机端表现为「数据库打开失败」。机理与处置见 [`docs/DATABASE.md` §7.1](docs/DATABASE.md)
 > - ❌ `flutter build windows`：VS 缺「使用 C++ 的桌面开发」工作负载
 
-完整的工具链搭建过程、三个必踩的坑、以及 Android SDK 手动组装方法见
+完整的工具链搭建过程、六个必踩的坑、以及 Android SDK 手动组装方法见
 [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md)。
 
 ---
