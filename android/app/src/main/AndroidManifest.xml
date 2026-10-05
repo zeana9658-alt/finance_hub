@@ -30,6 +30,20 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- ⚠️ 这里**故意没有** com.tekartik.sqflite.wal_enabled。
+
+             打开它会走 SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING，把 Android
+             连接池从 1 条扩到最多 4 条，而 PRAGMA foreign_keys 是 per-connection 的
+             —— 本项目 schema 依赖 ON DELETE CASCADE / SET NULL，开了 WAL 会让
+             外键约束变成"时有时无"。
+
+             另外注意：**不要**在 Dart 侧用 `db.execute('PRAGMA journal_mode = WAL')`
+             代替这个开关。Android 的 execSQL 走 executeUpdateDelete，无法执行
+             会返回结果集的语句，journal_mode 恰好返回一行（'wal'），会直接抛
+             "Queries can be performed using SQLiteDatabase query or rawQuery methods only."
+             让整个 openDatabase 失败。详见 lib/data/database/app_database.dart
+             的 configurePragmas() 与 docs/DATABASE.md §7.1。 -->
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
