@@ -46,10 +46,11 @@
 - [x] **账单明细**：搜索 / 来源 / 类型 / 时间范围 / 排序（全部 SQL 下推）
 - [x] **预算**：按分类设预算，进度条 + 低饱和琥珀预警（不用刺眼红色）
 - [x] **备份**：JSON 完整备份 + CSV 明细导出 + 恢复（预览 → 选合并/覆盖 → 确认）
+- [x] **快速记账**：收入 / 支出、金额、分类、商户、日期、支付方式、备注；
+      输入商户时会用**和导入同一套分类引擎**实时给出分类建议，点一下即应用
 
 ### 暂未实现（界面上已明确标注，未用假数据伪装）
 
-- [ ] **快速记账表单**（目前只有导入与手动分类）
 - [ ] **AI 消费分析 / 自然语言查询**（隐私边界 `FinancialSummary` 已在 docs/PRIVACY.md 设计好）
 
 ### 明确不做
@@ -85,7 +86,10 @@
 ```bash
 export PATH="/c/Users/kol56/.workbuddy-ai/tools/flutter/bin:$PATH"
 # ⚠️ 本机 http_proxy 会让 pub 假死，务必先 unset
-unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY
+# ⚠️ 还必须把 localhost 排除掉，否则 flutter_tester 的 WebSocket 会被代理
+#    拦截，报 "Invalid WebSocket upgrade request"，测试随机卡死
+export no_proxy="localhost,127.0.0.1,::1,0.0.0.0"; export NO_PROXY="$no_proxy"
 cd finance_hub
 
 # 依赖
@@ -94,7 +98,7 @@ flutter pub get
 # 静态分析（当前：No issues found）
 dart analyze
 
-# 测试（当前：148 个用例全部通过）
+# 测试（当前：247 个用例全部通过）
 # ⚠️ Git Bash 缺 %PROGRAMFILES(X86)%，需要显式注入
 env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' flutter test
 
@@ -105,10 +109,12 @@ env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' \
 
 > **当前验证状态**
 > - ✅ `dart analyze`：零 error / 零 warning / 零 info
-> - ✅ `flutter test`：**167 个用例全部通过**（金额精度、GBK、去重、分类、重跑、迁移、备份、Widget）
+> - ✅ `flutter test`：**247 个用例全部通过**（金额精度、GBK、去重、分类、重跑、迁移、备份、意图解析、查询引擎、Widget）
 > - ✅ `flutter build apk --release`：**构建成功**，产物已验签
->   - `dist/finance_hub-v0.1.0-release.apk`（60.7 MB，arm64-v8a + armeabi-v7a + x86_64）
+>   - `dist/finance_hub-v0.1.1-release.apk`（arm64-v8a + armeabi-v7a + x86_64）
 >   - 正式 release 签名，**零危险权限**
+> - ⚠️ **Android 上不得执行 `PRAGMA journal_mode = WAL`** —— 会让 `openDatabase` 直接抛异常，
+>   手机端表现为「数据库打开失败」。机理与处置见 [`docs/DATABASE.md` §7.1](docs/DATABASE.md)
 > - ❌ `flutter build windows`：VS 缺「使用 C++ 的桌面开发」工作负载
 
 完整的工具链搭建过程、三个必踩的坑、以及 Android SDK 手动组装方法见
@@ -129,10 +135,11 @@ lib/
 └── shared/      通用 Widget
 test/
 ├── fixtures/    全虚构测试数据
+├── core/        金额精度
 ├── import/      解析测试
-├── domain/      去重与分类测试
-├── consistency/ 方向/期间/金额一致性校验
-└── performance/ 10000 条规模测试
+├── domain/      去重、分类、意图解析、洞察
+├── data/        迁移、统计 DAO、备份、查询引擎、平台 PRAGMA 回归
+└── widget/      界面与启动闸门
 docs/            设计与规范文档
 ```
 

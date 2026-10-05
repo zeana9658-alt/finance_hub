@@ -528,6 +528,70 @@ const migrations = <Migration>[
 
 **铁律**：已发布的 Migration 文件**永不修改**，只追加新文件。修改历史迁移会导致老用户与新用户 schema 分叉。
 
+### 7.1 ★ PRAGMA 的平台差异（Android 不能执行 `PRAGMA journal_mode`）
+
+`AppDatabase.configurePragmas()` 是唯一设置 PRAGMA 的地方，它**必须区分平台**：
+
+```dart
+await execute('PRAGMA foreign_keys = ON');   // 两个平台都安全
+if (isAndroid) return;                        // Android 到此为止
+await execute('PRAGMA journal_mode = WAL');   // 只有桌面
+```
+
+**原因**：sqflite 在 Android 上把 `execute()` 映射到 `SQLiteDatabase.execSQL()`：
+
+```
+execSQL → executeSql → SQLiteStatement.executeUpdateDelete()
+        → SQLiteSession.executeForChangedRowCount
+        → nativeExecuteForChangedRowCount(..., isPragmaStmt = false)
+        → executeNonQuery(..., isPragmaStmt = false)
+```
+
+AOSP `android_database_SQLiteConnection.cpp` 的 `executeNonQuery` **只在
+`isPragmaStmt == true` 时排空结果行**；否则一旦 `sqlite3_step` 返回
+`SQLITE_ROW` 就抛：
+
+```
+SQLiteException: Queries can be performed using SQLiteDatabase query or rawQuery methods only.
+```
+
+`PRAGMA journal_mode = WAL` 会返回一行（`'wal'`），所以在 Android 上这一句会让
+**整个 `openDatabase` 失败** —— 表现为「数据库打开失败」，首页/账单/统计全部读不到数据。
+
+桌面走 `sqflite_common_ffi`，`execute` 直接落到原生 sqlite3 C API，会正常步进并丢弃结果行，
+因此**这个错误在桌面上完全看不到** —— 这正是「Windows 构建能跑、手机一装就报错」的原因。
+
+**为什么 Android 上不启用 WAL（三个理由）**：
+
+1. Android 的 `journal_mode` 由 `SQLiteDatabase` 自己管理。AOSP `SQLiteConnection.setJournalMode()`
+   的做法是 `executeForString("PRAGMA journal_mode=" + newValue, ...)` —— **走查询通道**，
+   并且把返回的模式读回来校验；同时它只接受 `DELETE` / `TRUNCATE` / `PERSIST` / `WAL` 四个值
+   （`SQLiteDatabase.JournalMode`）。源码里还有一句关键注释：
+
+   > Because we always disable WAL mode when a database is first opened
+   > (even if we intend to re-enable it)...
+
+   也就是说 **Android 每次打开数据库都会先把日志模式压回 DELETE，再由框架自己决定要不要开 WAL**。
+   应用层去 `PRAGMA journal_mode = WAL` 是在和框架抢方向盘 —— 官方文档也明确要求
+   "do not set journal_mode using PRAGMA ... if your app is using `enableWriteAheadLogging()`"。
+   要启用只能走 sqflite 的 `AndroidManifest` 开关
+   （`<meta-data android:name="com.tekartik.sqflite.wal_enabled" android:value="true"/>`）。
+2. **外键一致性**：`PRAGMA foreign_keys` 是 **per-connection** 的。非 WAL 时 Android
+   连接池只有 1 条连接（`SQLiteDatabase.setMaxConnectionPoolSizeLocked()`），ON 能覆盖全部操作；
+   一旦启用 WAL，连接池变成最多 4 条，外键约束会「时有时无」—— 而本 schema 大量依赖
+   `ON DELETE CASCADE / SET NULL`，这种不确定性比失去 WAL 危险得多。
+3. sqflite 自身 `Database.java` 里写着 `WAL_ENABLED_BY_DEFAULT = false`，
+   注释是 "2022-09-14 experiments show several corruption issue"。
+
+> **已中招的设备会自愈**：`setJournalMode()` 内部把 `SQLiteDatabaseLockedException`
+> （`SQLITE_BUSY`，"一条连接是 WAL、另一条想改成非 WAL"）当作可预期情况吞掉并重试。
+> 所以手机上前一次启动留下的 WAL 模式与 `.wal` / `.shm` 文件，会在修复后的第一次打开时
+> 被框架压回 `DELETE` 并清理掉，不需要用户卸载重装（重装是最后的兜底手段）。
+
+**回归测试**：`test/data/database_pragma_test.dart` 用一个模拟 Android `execSQL`
+语义的假 executor 断言 `configurePragmas(isAndroid: true)` 不会发出 `journal_mode`，
+并在真 FFI 上断言桌面端仍然启用 WAL —— 桌面行为不因本次修复回退。
+
 ---
 
 ## 8. 隐私约束（数据库层）

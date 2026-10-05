@@ -188,7 +188,7 @@ class SettingsPage extends ConsumerWidget {
                 _StatusRow(label: '账单搜索与多条件筛选', done: true),
                 _StatusRow(label: '预算设置与进度追踪', done: true),
                 _StatusRow(label: '备份导出（JSON / CSV）与恢复', done: true),
-                _StatusRow(label: '快速记账表单', done: false),
+                _StatusRow(label: '快速记账（收入 / 支出、分类建议）', done: true),
                 _StatusRow(label: 'AI 消费分析 / 自然语言查询', done: false),
               ],
             ),
@@ -203,7 +203,7 @@ class SettingsPage extends ConsumerWidget {
               children: <Widget>[
                 const _InfoRow(label: '应用', value: '聚账 · FinanceHub'),
                 const SizedBox(height: AppDimens.gapS),
-                const _InfoRow(label: '版本', value: '0.1.0'),
+                const _InfoRow(label: '版本', value: '0.1.1'),
                 const SizedBox(height: AppDimens.gapS),
                 const _InfoRow(label: '数据库版本', value: 'v2'),
                 const SizedBox(height: AppDimens.gapM),

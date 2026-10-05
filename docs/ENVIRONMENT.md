@@ -22,7 +22,7 @@ Flutter 已通过 `flutter config` 记住 SDK 与 JDK 路径，无需每次重�
 
 ---
 
-## 2. 三个必踩的坑（务必先看）
+## 2. 四个必踩的坑（务必先看）
 
 ### 坑 1：`http_proxy` 会让 `flutter pub get` 假死
 
@@ -32,11 +32,38 @@ Flutter 已通过 `flutter config` 记住 SDK 与 JDK 路径，无需每次重�
 **跑 pub / flutter 构建前先 unset 代理：**
 
 ```bash
-unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY
 ```
 
 > ⚠️ 反直觉之处：**curl 恰恰相反** —— 用 curl 探测站点时必须**保留**代理，
 > unset 掉就完全没网（全部返回 000）。Flutter/Dart 自己能走系统代理。
+
+### 坑 1.5：unset 代理还不够，必须再把 `localhost` 加进 `no_proxy`
+
+**症状**：`flutter test` 随机失败或**永久挂起**，报
+
+```
+Unable to connect to flutter_tester process:
+WebSocketException: Invalid WebSocket upgrade request
+```
+
+或者干脆什么都不报，测试停在 `did not complete`，日志长时间不增长。
+
+**原因**：`flutter test` 会起一个 `flutter_tester` 子进程，Dart 通过
+**本机 WebSocket**（127.0.0.1 随机端口）与它通信。系统级代理设置会把这条
+本地回环连接也劫持走，代理不认识 WebSocket 升级请求，于是握手失败。
+表现是"随机"的，因为端口是随机的 —— 极容易被误判成"测试本身有 bug"。
+
+**解决**：显式把回环地址排除：
+
+```bash
+export no_proxy="localhost,127.0.0.1,::1,0.0.0.0"
+export NO_PROXY="$no_proxy"
+```
+
+> 排查心得：`flutter test` 出现**没有断言失败、只是不结束**的情况时，
+> 先怀疑通信链路，不要先怀疑被测代码。用 `--reporter expanded` 能看到
+> 卡在哪个用例，用 `timeout` 包一层避免无限等待。
 
 ### 坑 2：pub 的包数在完成前**不会增长**——不要中途杀进程
 
@@ -64,7 +91,9 @@ env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' f
 
 ```bash
 export PATH="/c/Users/kol56/.workbuddy-ai/tools/flutter/bin:$PATH"
-unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY
+export no_proxy="localhost,127.0.0.1,::1,0.0.0.0"
+export NO_PROXY="$no_proxy"
 export JAVA_HOME="C:\\Users\\kol56\\.workbuddy-ai\\tools\\jdk-21.0.12.1+1"
 export ANDROID_HOME="C:\\Users\\kol56\\.workbuddy-ai\\tools\\android-sdk"
 export ANDROID_SDK_ROOT="$ANDROID_HOME"
@@ -73,8 +102,8 @@ cd "C:\Users\kol56\WorkBuddy AI\2026-10-05-16-44-05\finance_hub"
 
 flutter pub get
 dart analyze                                  # 当前：No issues found
-env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' flutter test
-                                              # 当前：148 个用例全部通过
+env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' flutter test --no-pub
+                                              # 当前：247 个用例全部通过
 
 # 出 APK（约 12 分钟，首次会久一些）
 env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' \
@@ -131,15 +160,15 @@ sdkmanager 的仓库地址**硬编码 `dl.google.com`**，无法改镜像。
 ## 6. 构建产物与安装
 
 ```
-finance_hub/dist/finance_hub-v0.1.0-release.apk     # 60.6 MB
-finance_hub/dist/finance_hub-v0.1.0-release.apk.sha256
+finance_hub/dist/finance_hub-v0.1.1-release.apk
+finance_hub/dist/finance_hub-v0.1.1-release.apk.sha256
 ```
 
 | 项 | 值 |
 |---|---|
 | 包名 | `com.financehub.finance_hub` |
 | 应用名 | 聚账 |
-| versionName / versionCode | 0.1.0 / 1 |
+| versionName / versionCode | 0.1.1 / 2 |
 | minSdk / targetSdk / compileSdk | 24 / 36 / 36 |
 | 覆盖 ABI | arm64-v8a、armeabi-v7a、x86_64 |
 | 签名 | `CN=FinanceHub, OU=Personal Finance, O=FinanceHub, L=Beijing, ST=Beijing, C=CN` |
@@ -175,6 +204,6 @@ Flutter 报 `Unable to find suitable Visual Studio toolchain`。
 | 验证项 | 状态 |
 |---|---|
 | `dart analyze` | ✅ No issues found |
-| `flutter test` | ✅ 148 个用例全部通过 |
+| `flutter test` | ✅ 247 个用例全部通过 |
 | `flutter build apk --release` | ✅ **成功**，产物已验签 |
 | `flutter build windows` | ❌ VS 缺 C++ 工作负载（见 §7） |

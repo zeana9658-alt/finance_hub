@@ -407,7 +407,7 @@ idle
 | 必要索引 | `transaction_time`、`type`、`category_id`、`source`、`merchant`、`unique_key` |
 | 分页 | 账单列表 `LIMIT/OFFSET`（或 keyset 分页），每页 50 |
 | 批量写入 | 导入用单个事务 + `batch()`，10000 条 < 2 秒 |
-| WAL 模式 | `journal_mode = WAL` 提升并发读 |
+| WAL 模式 | **仅桌面**：`journal_mode = WAL` 提升并发读。Android **不可执行**该 PRAGMA（会让 `openDatabase` 直接抛异常，且与 per-connection 的 `foreign_keys` 冲突），保持系统默认日志模式。详见 `docs/DATABASE.md` §7.1 |
 | 避免全表重建 | 分类重跑只 `UPDATE` 变化行，且跳过 `category_source = manual` |
 | 图表数据点上限 | 日历/热力图按聚合值渲染，不逐笔绘制 |
 | `const` 构造 | 大量静态 Widget 用 `const` 减少重建 |
@@ -419,6 +419,7 @@ idle
 | 关注点 | Android | Windows |
 |---|---|---|
 | 数据库工厂 | `sqflite` 原生 | `sqfliteFfiInit()` + `databaseFactoryFfi` |
+| journal_mode | **系统默认**（不执行 `PRAGMA journal_mode`） | `PRAGMA journal_mode = WAL` |
 | DB 路径 | `getApplicationSupportDirectory()` | 同左 |
 | 文件选择 | 系统文件选择器 | 原生文件对话框 |
 | 分享导出 | `share_plus` | 保存到文件 + 打开所在目录 |

@@ -1,4 +1,5 @@
 import 'package:finance_hub/app/providers.dart';
+import 'package:finance_hub/app/startup_gate.dart';
 import 'package:finance_hub/app/theme/app_theme.dart';
 import 'package:finance_hub/features/home/home_shell.dart';
 import 'package:flutter/material.dart';
@@ -18,7 +19,8 @@ class FinanceHubApp extends ConsumerWidget {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,
-      home: const HomeShell(),
+      // 先过一道启动闸门：数据库打不开时给出可读原因，而不是红色错误屏。
+      home: const StartupGate(child: HomeShell()),
     );
   }
 }

@@ -78,7 +78,7 @@ class BackupBundle {
     required this.budgets,
     required this.settings,
     this.version = backupFormatVersion,
-    this.appVersion = '0.1.0',
+    this.appVersion = '0.1.1',
     this.includeRawData = false,
   });
 

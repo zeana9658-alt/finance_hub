@@ -2,10 +2,14 @@
 # 隐私红线：账单数据与数据库绝不入库
 # 见 docs/PRIVACY.md §8
 # ============================================================
-imports/
-database/
-backups/
-exports/
+# ⚠️ 必须带前导 `/` 锚定到仓库根目录。
+# 之前写成 `database/`（不带斜杠）时，Git 会把**任意层级**下叫 database 的
+# 目录一并忽略 —— 结果 `lib/data/database/`（app_database.dart + 全部迁移）
+# 从未进入版本库，裸克隆根本构建不起来。2026-10-05 发现并修正。
+/imports/
+/database/
+/backups/
+/exports/
 *.db
 *.sqlite
 *.sqlite3

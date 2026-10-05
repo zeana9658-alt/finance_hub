@@ -31,11 +31,23 @@ final appDatabaseProvider = Provider<AppDatabase>((Ref ref) {
   return database;
 });
 
+/// 启动健康检查：确认数据库**真的能打开**，否则把原因显示出来。
+///
+/// **为什么需要它**（2026-10-05 的真实教训）：
+/// 手机端因为一句在 Android 上非法执行的 `PRAGMA journal_mode = WAL`，
+/// `openDatabase` 一直抛异常。各业务 Provider 各自抛自己的异常，界面只是
+/// Flutter 默认的红色错误屏 —— 用户拿不到任何可读信息，只能靠猜。
+/// 现在由 [StartupGate] 在启动时先做一次打开检查，失败就把
+/// `AppException.message` 与 `detail`（底层平台错误原文）显示出来。
+final databaseHealthProvider = FutureProvider<AppDatabase>((Ref ref) async {
+  final database = ref.watch(appDatabaseProvider);
+  await database.open();
+  return database;
+});
+
 final transactionRepositoryProvider = Provider<TransactionRepository>(
   (Ref ref) => TransactionRepositoryImpl(ref.watch(appDatabaseProvider)),
-);
-
-final categoryRepositoryProvider = Provider<CategoryRepository>(
+);final categoryRepositoryProvider = Provider<CategoryRepository>(
   (Ref ref) => CategoryRepositoryImpl(ref.watch(appDatabaseProvider)),
 );
 

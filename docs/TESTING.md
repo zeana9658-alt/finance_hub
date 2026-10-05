@@ -223,6 +223,27 @@ test('数据库内所有金额均为整数分，无浮点残留', () async {
 
 ---
 
+### 4.6 ★ 平台差异回归（`database_pragma_test.dart` / `startup_gate_test.dart`）
+
+这两个文件存在的唯一理由，是 2026-10-05 那个"Windows 能跑、手机一装就崩"的真实事故：
+`PRAGMA journal_mode = WAL` 在 Android 上会让 `openDatabase` 直接抛异常
+（机理见 `docs/DATABASE.md` §7.1），而**桌面端完全复现不出来**。
+
+普通单元测试抓不到这种 bug —— 因为它在桌面环境下就是"正常"的。
+所以这里用的是**把平台规则搬进测试**的办法：
+
+| 测试 | 手法 |
+|---|---|
+| `configurePragmas(isAndroid: true)` 不发出 `journal_mode` | 写一个**模拟 Android `execSQL` 语义**的假 executor：凡遇到会返回结果集的 PRAGMA 就抛异常 |
+| 「假 executor 本身有效」 | 先断言它**确实会**拒绝 `journal_mode` —— 否则上一条只是假绿灯（这条是"对测试的测试"） |
+| 桌面端仍启用 WAL | 在真 FFI 上打开真实数据库，断言 `journal_mode == 'wal'`、`foreign_keys == 1`，保证修复没有把桌面行为一起改掉 |
+| 数据库打不开时给出可读错误页 | `startup_gate_test.dart` 把**目录**当成数据库路径，断言页面出现「数据库打开失败」+ 可复制的错误原文 + 重试按钮 |
+
+**可复用的经验**：凡是"只在某个平台失败"的 bug，都要给这个平台单独建一个
+**语义模型**放进测试，而不是靠"在真机上试一次"。
+
+---
+
 ## 5. 测试数据规范（隐私）
 
 **所有 fixtures 必须虚构**，且遵守：
