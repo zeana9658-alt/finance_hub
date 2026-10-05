@@ -1,29 +1,24 @@
-# ENVIRONMENT.md — 工具链搭建与已知限制
+# ENVIRONMENT.md — 工具链搭建与构建指南
 
-> 本文件记录**本机从零搭建 Flutter 环境**的完整过程、踩过的坑，以及当前仍存在的限制。
-> 目的是让下一个人（或下一次会话）不用重复摸索。
+> 本文件记录**本机从零搭建 Flutter + Android 工具链**的完整过程、踩过的坑，
+> 以及可复现的构建命令。目的是让下一个人（或下一次会话）不用重复摸索。
 
 ---
 
-## 1. 已完成的搭建
+## 1. 已安装的工具链
 
 | 组件 | 版本 | 位置 |
 |---|---|---|
 | Flutter SDK | 3.47.6 stable | `C:\Users\kol56\.workbuddy-ai\tools\flutter` |
 | Dart | 3.13.5 | 随 Flutter SDK |
+| JDK | Temurin **21.0.12.1+1** | `C:\Users\kol56\.workbuddy-ai\tools\jdk-21.0.12.1+1` |
+| Gradle | **9.3.1** | `C:\Users\kol56\.workbuddy-ai\tools\gradle-9.3.1` |
+| Android SDK | platforms **35 + 36**、build-tools **36.0.0 / 37.0.0**、platform-tools | `C:\Users\kol56\.workbuddy-ai\tools\android-sdk` |
+| Android NDK | **28.2.13676358**（= r28c） | `...\android-sdk\ndk\28.2.13676358` |
+| CMake | **3.22.1** | `...\android-sdk\cmake\3.22.1` |
 | Git | 2.55.0 | 系统 |
 
-安装来源：`https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_3.47.6-stable.zip`（1.93 GB，解压约 12 分钟）。
-
-> 安装路径刻意选**无空格**的目录，避免 Gradle / CMake 处理空格路径时出问题。
-
-### 1.1 环境变量
-
-每次开新终端都需要：
-
-```bash
-export PATH="/c/Users/kol56/.workbuddy-ai/tools/flutter/bin:$PATH"
-```
+Flutter 已通过 `flutter config` 记住 SDK 与 JDK 路径，无需每次重设。
 
 ---
 
@@ -32,28 +27,26 @@ export PATH="/c/Users/kol56/.workbuddy-ai/tools/flutter/bin:$PATH"
 ### 坑 1：`http_proxy` 会让 `flutter pub get` 假死
 
 本机默认设置了 `http_proxy=http://127.0.0.1:64886`。
-带代理时 pub 会长时间停在 `Resolving dependencies...`，看起来像卡死。
+带代理时 pub 会长时间停在 `Resolving dependencies...`。
 
-**解决：跑 pub 前先 unset 代理。**
+**跑 pub / flutter 构建前先 unset 代理：**
 
 ```bash
 unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
-flutter pub get
 ```
+
+> ⚠️ 反直觉之处：**curl 恰恰相反** —— 用 curl 探测站点时必须**保留**代理，
+> unset 掉就完全没网（全部返回 000）。Flutter/Dart 自己能走系统代理。
 
 ### 坑 2：pub 的包数在完成前**不会增长**——不要中途杀进程
 
 pub 把包解压到 `%LOCALAPPDATA%\Pub\Cache\_temp\dirXXXX`，
 **全部下载完才一次性改名**到 `hosted/pub.dev/<pkg>-<ver>/`。
-
-所以中途查看缓存目录，包数是不变的。看起来像卡住，其实在正常工作。
-本次因为反复误判"卡死"并杀进程，白白多花了一个多小时。
-
-**判断是否真卡住的方法**：看 `_temp` 目录里的 `dir*` 数量是否在增长，而不是看包数。
+判断是否真卡住，要看 `_temp` 里的 `dir*` 数量是否增长。
 
 ### 坑 3：`flutter test` / `flutter build` 需要 `%PROGRAMFILES(X86)%`
 
-Git Bash 环境里没有这个 Windows 变量，Flutter 工具会直接报错退出：
+Git Bash 里没有这个 Windows 变量，Flutter 工具会直接报错退出：
 
 ```
 %PROGRAMFILES(X86)% environment variable not found.
@@ -62,9 +55,7 @@ Git Bash 环境里没有这个 Windows 变量，Flutter 工具会直接报错退
 **解决：用 `env` 显式注入。**
 
 ```bash
-env 'PROGRAMFILES(X86)=C:\Program Files (x86)' \
-    'PROGRAMFILES=C:\Program Files' \
-    flutter test
+env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' flutter build apk
 ```
 
 ---
@@ -74,75 +65,116 @@ env 'PROGRAMFILES(X86)=C:\Program Files (x86)' \
 ```bash
 export PATH="/c/Users/kol56/.workbuddy-ai/tools/flutter/bin:$PATH"
 unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+export JAVA_HOME="C:\\Users\\kol56\\.workbuddy-ai\\tools\\jdk-21.0.12.1+1"
+export ANDROID_HOME="C:\\Users\\kol56\\.workbuddy-ai\\tools\\android-sdk"
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
+export GRADLE_USER_HOME="C:\\Users\\kol56\\AppData\\Local\\Temp\\gradle-home"
 cd "C:\Users\kol56\WorkBuddy AI\2026-10-05-16-44-05\finance_hub"
 
-# 依赖
 flutter pub get
-
-# 静态分析（当前结果：No issues found）
-dart analyze
-
-# 测试（当前结果：110 个用例全部通过）
+dart analyze                                  # 当前：No issues found
 env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' flutter test
+                                              # 当前：148 个用例全部通过
 
-# 只跑解析相关测试
+# 出 APK（约 12 分钟，首次会久一些）
 env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' \
-  flutter test test/import/
+  flutter build apk --release
+# 产物：build/app/outputs/flutter-apk/app-release.apk
 ```
 
 ---
 
-## 4. 当前未打通的两条构建路径
+## 4. 构建 APK 的完整依赖（缺一不可）
 
-### 4.1 `flutter build apk` —— 缺 JDK 与 Android SDK
+这一步花了最久，把每个卡点都记下来：
 
-实测缺失：`java` 不在 PATH、`ANDROID_HOME` 未设置、默认 Android SDK 目录不存在。
+| 卡点报错 | 原因 | 解决 |
+|---|---|---|
+| `ClassNotFoundException: GradleWrapperMain` | 在 Git Bash 里直接跑 `./gradlew`，路径含空格导致 classpath 失效 | 改用 `flutter build apk`，不要手搓 gradlew |
+| 停在 `Running Gradle task 'assembleRelease'...` 十几分钟无输出 | AGP 在跑 `sdkmanager --install ndk;28.2.13676358`（`jni` 插件声明了 `ndkVersion`）。sdkmanager 走系统代理能通，但 2 GB 下载极慢 | 手动装 NDK 到 `android-sdk/ndk/28.2.13676358/` |
+| `Failed to find target with hash string 'android-35'` | `jni` / `jni_flutter` 硬编码 `compileSdk 35`，项目其他模块用 36 | 补装 `platforms/android-35` |
+| `[CXX1300] CMake '3.22.1' was not found` | `jni` 会用 CMake 编译 `libdartjni.so`，**确实需要原生工具链** | 装 CMake 3.22.1，并把 `bin/`、`share/`、`source.properties` 一起放到 `android-sdk/cmake/3.22.1/` |
 
-**解除方法**（需要用户手动执行，约 3–5 GB 下载）：
+> **教训**：Gradle「卡住」时第一件事是 `flutter build apk -v` 看最后一行输出，
+> 不要凭感觉猜是网络慢还是被拦。
 
-1. 安装 JDK 17（Temurin 或 Oracle）
-2. 安装 Android SDK Command-line Tools，并装：
-   ```bash
-   sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-   ```
-3. 设置 `ANDROID_HOME` 与 `ANDROID_SDK_ROOT`
-4. Gradle 依赖需要走镜像（`repo1.maven.org` 在本机**不可达**，
-   `maven.aliyun.com` 可达）。在 `android/build.gradle.kts` 里加：
-   ```kotlin
-   maven { url = uri("https://maven.aliyun.com/repository/public") }
-   maven { url = uri("https://maven.aliyun.com/repository/google") }
-   ```
-5. 然后 `flutter build apk --release`
+---
 
-### 4.2 `flutter build windows` —— Visual Studio 缺 C++ 工作负载
+## 5. Android SDK 的手动组装方法（sdkmanager 走不通时）
 
-`C:\Program Files\Microsoft Visual Studio` **存在**，但 Flutter 报：
+sdkmanager 的仓库地址**硬编码 `dl.google.com`**，无法改镜像。
+在受限网络下按下面的办法手动组装：
+
+1. 取仓库索引：
+   - `https://mirrors.cloud.tencent.com/AndroidSDK/repository2-3.xml`
+   - 或 Google 自家 CDN 旁路：`https://redirector.gvt1.com/edgedl/android/repository/repository2-3.xml`
+2. 从 XML 里 grep 出包的确切文件名（如 `platform-36_r02.zip`、`build-tools_r36_windows.zip`）
+3. 从 `https://mirrors.cloud.tencent.com/AndroidSDK/<文件名>` 下载
+4. **注意压缩包内部顶层目录名 ≠ 目标目录名**，必须重命名：
+
+   | 压缩包 | 内部顶层 | 目标路径 |
+   |---|---|---|
+   | `platform-36_r02.zip` | `android-36/` | `platforms/android-36` |
+   | `build-tools_r36_windows.zip` | `android-16/` | `build-tools/36.0.0` |
+   | `build-tools_r37_windows.zip` | `android-37.0/` | `build-tools/37.0.0` |
+   | `platform-tools_*.zip` | `platform-tools/` | `platform-tools` |
+   | `commandlinetools-*.zip` | `cmdline-tools/` | `cmdline-tools/latest` |
+   | `android-ndk-r28c-windows.zip` | `android-ndk-r28c/` | `ndk/28.2.13676358` |
+   | `cmake-3.22.1-windows.zip` | `bin/` + `share/` | `cmake/3.22.1/{bin,share,source.properties}` |
+
+5. **必须手写许可证文件**，否则 AGP 报未接受许可：
+   - `licenses/android-sdk-license`（三行哈希）
+   - `licenses/android-sdk-preview-license`
+
+---
+
+## 6. 构建产物与安装
 
 ```
-Unable to find suitable Visual Studio toolchain.
+finance_hub/dist/finance_hub-v0.1.0-release.apk     # 60.6 MB
+finance_hub/dist/finance_hub-v0.1.0-release.apk.sha256
 ```
 
-说明装的是 VS 但**没有勾选「使用 C++ 的桌面开发」工作负载**。
+| 项 | 值 |
+|---|---|
+| 包名 | `com.financehub.finance_hub` |
+| 应用名 | 聚账 |
+| versionName / versionCode | 0.1.0 / 1 |
+| minSdk / targetSdk / compileSdk | 24 / 36 / 36 |
+| 覆盖 ABI | arm64-v8a、armeabi-v7a、x86_64 |
+| 签名 | `CN=FinanceHub, OU=Personal Finance, O=FinanceHub, L=Beijing, ST=Beijing, C=CN` |
+| 签名方案 | APK Signature Scheme v2 ✅ |
+| 权限 | **零危险权限**（仅 AndroidX 自动生成的 DYNAMIC_RECEIVER） |
+
+**安装**：把 APK 传到手机，允许「安装未知来源应用」后点击安装即可。
+
+> 签名用的是本项目专属的 release 密钥库（`android/app/finance_hub-release.jks`，
+> 口令在 `android/key.properties`，两者都已 `.gitignore`）。
+> **请务必备份这个 .jks** —— 丢了就无法覆盖升级已安装的 App，只能卸载重装。
+
+---
+
+## 7. 未打通的路径
+
+### `flutter build windows`
+
+Visual Studio 已安装，但缺「使用 C++ 的桌面开发」工作负载，
+Flutter 报 `Unable to find suitable Visual Studio toolchain`。
 
 **解除方法**：打开 Visual Studio Installer → 修改 → 勾选
 「使用 C++ 的桌面开发」（含 MSVC v143 生成工具 + Windows 10/11 SDK）。
 
-> 另有一个已知的 Flutter 侧问题：`windows/flutter/ephemeral/.plugin_symlinks/`
+> 另有一个 Flutter 侧已知问题：`windows/flutter/ephemeral/.plugin_symlinks/`
 > 里的符号链接若已存在，Flutter 会报 `errno 183 文件已存在` 而不是跳过。
-> 遇到时把 `windows/flutter/ephemeral` 整个目录移走再构建即可。
+> 遇到时把 `windows/flutter/ephemeral` 整个目录移走再构建。
 
 ---
 
-## 5. 本环境的验证强度说明
+## 8. 本环境的验证强度
 
 | 验证项 | 状态 |
 |---|---|
-| `dart analyze` | ✅ **No issues found**（零 error / 零 warning / 零 info） |
-| `flutter test` | ✅ **110 个用例全部通过** |
-| 单元测试覆盖 | 金额精度、GBK 一致性、表头定位、微信/支付宝解析、来源识别、去重（含跨平台）、分类优先级、迁移与仓储、金额完整性 |
-| Widget 测试覆盖 | 空态、小屏 360×640、1.5× 大字体、暗色模式、五页导航、未实现功能显式声明 |
-| `flutter build apk` | ❌ 缺 JDK + Android SDK（见 §4.1） |
-| `flutter build windows` | ❌ VS 缺 C++ 工作负载（见 §4.2） |
-
-**结论**：代码逻辑已被静态分析与 110 个测试充分验证；
-两条打包路径受限于本机工具链，不是代码问题。按 §4 补齐后即可直接构建。
+| `dart analyze` | ✅ No issues found |
+| `flutter test` | ✅ 148 个用例全部通过 |
+| `flutter build apk --release` | ✅ **成功**，产物已验签 |
+| `flutter build windows` | ❌ VS 缺 C++ 工作负载（见 §7） |

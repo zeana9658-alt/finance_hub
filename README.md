@@ -93,20 +93,25 @@ flutter pub get
 # 静态分析（当前：No issues found）
 dart analyze
 
-# 测试（当前：110 个用例全部通过）
+# 测试（当前：148 个用例全部通过）
 # ⚠️ Git Bash 缺 %PROGRAMFILES(X86)%，需要显式注入
 env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' flutter test
 
-# 构建
-flutter build apk --release        # Android（需先装 JDK + Android SDK）
-flutter build windows --release    # Windows（需 VS 的 C++ 桌面开发工作负载）
+# 出 Android APK（约 12 分钟）
+env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' \
+  flutter build apk --release
 ```
 
 > **当前验证状态**
 > - ✅ `dart analyze`：零 error / 零 warning / 零 info
-> - ✅ `flutter test`：110 个用例全部通过（含金额精度、GBK、去重、分类、迁移、Widget）
-> - ❌ 两条打包路径受限于本机工具链（缺 JDK+Android SDK / VS 缺 C++ 工作负载），
->   **不是代码问题**。补齐方法见 [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) §4。
+> - ✅ `flutter test`：148 个用例全部通过（金额精度、GBK、去重、分类、迁移、备份、Widget）
+> - ✅ `flutter build apk --release`：**构建成功**，产物已验签
+>   - `dist/finance_hub-v0.1.0-release.apk`（60.6 MB，arm64-v8a + armeabi-v7a + x86_64）
+>   - 正式 release 签名，**零危险权限**
+> - ❌ `flutter build windows`：VS 缺「使用 C++ 的桌面开发」工作负载
+
+完整的工具链搭建过程、三个必踩的坑、以及 Android SDK 手动组装方法见
+[`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md)。
 
 ---
 

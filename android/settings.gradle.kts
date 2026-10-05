@@ -11,6 +11,12 @@ pluginManagement {
     includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
 
     repositories {
+        // 国内镜像优先：本机环境下 repo1.maven.org（Maven Central）与
+        // dl.google.com（Google Maven）均不可达，必须走 aliyun 镜像。
+        maven { url = uri("https://maven.aliyun.com/repository/google") }
+        maven { url = uri("https://maven.aliyun.com/repository/public") }
+        maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
+        // 兜底：网络可达时仍可回落到官方源
         google()
         mavenCentral()
         gradlePluginPortal()

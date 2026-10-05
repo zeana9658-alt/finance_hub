@@ -75,5 +75,18 @@ app.*.map.json
 !.env.example
 *.local.yaml
 
+# ============================================================
+# 签名密钥与配置 —— 绝不入库
+# ============================================================
+android/key.properties
+android/local.properties
+*.jks
+*.keystore
+!android/key.properties.example
+
+# 构建产物
+dist/*.apk
+dist/*.aab
+
 # 备份文件
 *.json.bak
