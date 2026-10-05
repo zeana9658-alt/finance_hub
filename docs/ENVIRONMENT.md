@@ -1,19 +1,23 @@
 # ENVIRONMENT.md — 工具链搭建与构建指南
 
-> 本文件记录**本机从零搭建 Flutter + Android 工具链**的完整过程、踩过的坑，
+> 本文件记录**在 Windows 上从零搭建 Flutter + Android 工具链**的完整过程、踩过的坑，
 > 以及可复现的构建命令。目的是让下一个人（或下一次会话）不用重复摸索。
+>
+> 📌 **路径约定**：文中的 `C:\tools\` 是"工具链根目录"的**占位符**，
+> 请替换成你自己的实际路径（如 `D:\dev\sdk`、`C:\Users\<你>\sdk`）。
+> 凡是需要你替换的地方都会显式标注。
 
 ---
 
 ## 1. 已安装的工具链
 
-| 组件 | 版本 | 位置 |
+| 组件 | 版本 | 位置（示例） |
 |---|---|---|
-| Flutter SDK | 3.47.6 stable | `C:\Users\kol56\.workbuddy-ai\tools\flutter` |
+| Flutter SDK | 3.47.6 stable | `C:\tools\flutter` |
 | Dart | 3.13.5 | 随 Flutter SDK |
-| JDK | Temurin **21.0.12.1+1** | `C:\Users\kol56\.workbuddy-ai\tools\jdk-21.0.12.1+1` |
-| Gradle | **9.3.1** | `C:\Users\kol56\.workbuddy-ai\tools\gradle-9.3.1` |
-| Android SDK | platforms **35 + 36**、build-tools **36.0.0 / 37.0.0**、platform-tools | `C:\Users\kol56\.workbuddy-ai\tools\android-sdk` |
+| JDK | Temurin **21.0.12.1+1** | `C:\tools\jdk-21.0.12.1+1` |
+| Gradle | **9.3.1** | `C:\tools\gradle-9.3.1` |
+| Android SDK | platforms **35 + 36**、build-tools **36.0.0 / 37.0.0**、platform-tools | `C:\tools\android-sdk` |
 | Android NDK | **28.2.13676358**（= r28c） | `...\android-sdk\ndk\28.2.13676358` |
 | CMake | **3.22.1** | `...\android-sdk\cmake\3.22.1` |
 | Git | 2.55.0 | 系统 |
@@ -155,15 +159,15 @@ env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' f
 ## 3. 标准命令（复制即用）
 
 ```bash
-export PATH="/c/Users/kol56/.workbuddy-ai/tools/flutter/bin:$PATH"
+export PATH="/c/tools/flutter/bin:$PATH"
 unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY
 export no_proxy="localhost,127.0.0.1,::1,0.0.0.0"
 export NO_PROXY="$no_proxy"
-export JAVA_HOME="C:\\Users\\kol56\\.workbuddy-ai\\tools\\jdk-21.0.12.1+1"
-export ANDROID_HOME="C:\\Users\\kol56\\.workbuddy-ai\\tools\\android-sdk"
+export JAVA_HOME="C:\\tools\\jdk-21.0.12.1+1"
+export ANDROID_HOME="C:\\tools\\android-sdk"
 export ANDROID_SDK_ROOT="$ANDROID_HOME"
-export GRADLE_USER_HOME="C:\\Users\\kol56\\AppData\\Local\\Temp\\gradle-home"
-cd "C:\Users\kol56\WorkBuddy AI\2026-10-05-16-44-05\finance_hub"
+export GRADLE_USER_HOME="%TEMP%\\gradle-home"
+cd /path/to/finance_hub
 
 flutter pub get
 dart analyze                                  # 当前：No issues found

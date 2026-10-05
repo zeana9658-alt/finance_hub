@@ -1,5 +1,10 @@
 # 聚账 · FinanceHub
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Flutter](https://img.shields.io/badge/Flutter-3.47%2B-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
+[![Platform](https://img.shields.io/badge/platform-Android%20%7C%20Windows-3DDC84?logo=android&logoColor=white)](#技术栈)
+[![Tests](https://img.shields.io/badge/tests-247%20passed-brightgreen)](#快速开始)
+
 > **个人财务数据中枢** —— 把支付宝和微信账单扔进去，App 帮你把消费生活讲清楚。
 
 不是传统的"手动记账 App"。核心价值是**把散落在不同平台的账单统一进来、去重、分类、可视化**，让你真正看懂"我的钱都花到哪里去了"。
@@ -83,43 +88,67 @@
 
 ## 快速开始
 
-```bash
-export PATH="/c/Users/kol56/.workbuddy-ai/tools/flutter/bin:$PATH"
-# ⚠️ 本机 http_proxy 会让 pub 假死，务必先 unset
-unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY
-# ⚠️ 还必须把 localhost 排除掉，否则 flutter_tester 的 WebSocket 会被代理
-#    拦截，报 "Invalid WebSocket upgrade request"，测试随机卡死
-export no_proxy="localhost,127.0.0.1,::1,0.0.0.0"; export NO_PROXY="$no_proxy"
-cd finance_hub
+需要 **Flutter 3.47+ / Dart 3.13+**。完整工具链搭建（含 Windows 上的坑）见
+[`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md)。
 
-# 依赖
+```bash
+# 1) 依赖
 flutter pub get
 
-# 静态分析（当前：No issues found）
+# 2) 静态分析（当前：No issues found）
 dart analyze
 
-# 测试（当前：247 个用例全部通过）
-# ⚠️ Git Bash 缺 %PROGRAMFILES(X86)%，需要显式注入
+# 3) 测试（当前：247 个用例全部通过）
+flutter test
+
+# 4) 出 Android APK
+flutter build apk --release
+#    产物：build/app/outputs/flutter-apk/app-release.apk
+```
+
+### Windows + Git Bash 用户请注意（其余平台可跳过）
+
+```bash
+# Git Bash 里没有 %PROGRAMFILES(X86)%，Flutter 工具会直接报错退出，
+# 需要用 env 显式注入：
 env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' flutter test
 
-# 出 Android APK（冷启动约 12 分钟，增量约 1 分钟）
-# ⚠️ 这里**不要**加 --no-pub！构建 APK 时它会让插件注册表不重新生成，
-#    直接把 dev 依赖插件（integration_test）编进 release，导致 javac 报
-#    「程序包 dev.flutter.plugins.integration_test 不存在」。详见 docs/ENVIRONMENT.md 坑 4
-env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' \
-  flutter build apk --release
+# 如果你本机开了系统代理，务必 unset，并显式把回环地址排除掉 ——
+# 否则 flutter_tester 的本机 WebSocket 会被代理拦截，
+# 测试会随机失败或静默挂起（报 "Invalid WebSocket upgrade request"）。
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY
+export no_proxy="localhost,127.0.0.1,::1,0.0.0.0"; export NO_PROXY="$no_proxy"
 ```
+
+> ⚠️ **构建 APK 时不要加 `--no-pub`。** 它会让 Android 插件注册表不重新生成，
+> 从而把 dev 依赖插件（`integration_test`）编进 release，导致 javac 报
+> 「程序包 `dev.flutter.plugins.integration_test` 不存在」。
+> 跑测试加 `--no-pub` 是安全的。机理见 [`docs/ENVIRONMENT.md` 坑 4](docs/ENVIRONMENT.md)。
+
+### 出正式签名包（可选）
+
+`android/key.properties` 缺失时 release 会自动退回 debug 签名，保证裸克隆也能构建。
+要出正式签名包，复制示例文件并填入自己的 keystore：
+
+```bash
+cp android/key.properties.example android/key.properties   # 再编辑填入
+```
+
+```bash
+keytool -genkeypair -v -keystore android/app/your-release.jks \
+  -alias youralias -keyalg RSA -keysize 2048 -validity 10000 \
+  -dname "CN=YourName, OU=Personal, O=YourName, L=Unknown, ST=Unknown, C=CN"
+```
+
+> 这两份文件都已在 `.gitignore` 中，**不会被提交**。
 
 > **当前验证状态**
 > - ✅ `dart analyze`：零 error / 零 warning / 零 info
 > - ✅ `flutter test`：**247 个用例全部通过**（金额精度、GBK、去重、分类、重跑、迁移、备份、意图解析、查询引擎、Widget）
-> - ✅ `flutter build apk --release`：**构建成功**，产物已验签
->   - `dist/finance_hub-v0.1.1-release.apk`（arm64-v8a + armeabi-v7a + x86_64）
->   - 正式 release 签名，**零危险权限**
->   - 上一版（无修复、手机端打不开数据库的 0.1.0）已挪到 `dist/archive/`，**不要安装**
-> - ⚠️ **Android 上不得执行 `PRAGMA journal_mode = WAL`** —— 会让 `openDatabase` 直接抛异常，
->   手机端表现为「数据库打开失败」。机理与处置见 [`docs/DATABASE.md` §7.1](docs/DATABASE.md)
-> - ❌ `flutter build windows`：VS 缺「使用 C++ 的桌面开发」工作负载
+> - ✅ `flutter build apk --release`：构建成功，release 签名，**零危险权限**，覆盖 arm64-v8a / armeabi-v7a / x86_64
+> - ⚠️ `flutter build windows`：需要 Visual Studio 的「使用 C++ 的桌面开发」工作负载
+> - ⚠️ **Android 上不要执行 `PRAGMA journal_mode = WAL`** —— 会让 `openDatabase` 直接抛异常，
+>   表现为「数据库打开失败」。机理见 [`docs/DATABASE.md` §7.1](docs/DATABASE.md)
 
 完整的工具链搭建过程、六个必踩的坑、以及 Android SDK 手动组装方法见
 [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md)。
@@ -159,7 +188,7 @@ docs/            设计与规范文档
 | [`docs/IMPORT_FORMATS.md`](docs/IMPORT_FORMATS.md) | 微信/支付宝账单真实格式与解析规范 |
 | [`docs/PRIVACY.md`](docs/PRIVACY.md) | 隐私承诺、AI 隐私边界、仓库规范 |
 | [`docs/TESTING.md`](docs/TESTING.md) | 测试策略、必测清单、自检清单 |
-| [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) | **工具链搭建全过程、三个必踩的坑、当前构建限制与解除方法** |
+| [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) | **工具链搭建全过程、六个必踩的坑、当前构建限制与解除方法** |
 
 ---
 
@@ -189,4 +218,14 @@ docs/            设计与规范文档
 
 ## 许可证
 
-MIT
+[MIT](LICENSE) © 2026 FinanceHub contributors
+
+---
+
+## 免责声明
+
+本项目是**个人财务管理工具**，不提供任何投资、税务或会计建议，也不构成专业意见。
+所有账单解析结果请自行核对；因使用本软件造成的任何损失，作者不承担责任。
+
+导入的账单文件由你自己保管。项目遵循 **LOCAL FIRST**：不联网、不上传，
+但**请仍然自行备份** —— 数据库只存在本机，卸载应用会一并清除。
