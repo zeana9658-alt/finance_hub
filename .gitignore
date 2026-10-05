@@ -1,0 +1,79 @@
+# ============================================================
+# 隐私红线：账单数据与数据库绝不入库
+# 见 docs/PRIVACY.md §8
+# ============================================================
+imports/
+database/
+backups/
+exports/
+*.db
+*.sqlite
+*.sqlite3
+*.xlsx
+*.xls
+*.csv
+*.tsv
+
+# 测试夹具例外 —— 全部为虚构数据（商户名以「示例」开头，单号以 TEST- 开头），
+# 必须入库才能跑测试。
+!test/fixtures/**
+
+# ============================================================
+# 构建产物与工具目录
+# ============================================================
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter_tool_state
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Widget Preview related
+.widget_preview/
+
+# ============================================================
+# 环境与本地配置（可能含密钥，绝不入库）
+# ============================================================
+.env
+.env.*
+!.env.example
+*.local.yaml
+
+# 备份文件
+*.json.bak
