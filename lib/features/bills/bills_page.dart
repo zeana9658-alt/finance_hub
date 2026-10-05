@@ -5,6 +5,7 @@ import 'package:finance_hub/domain/entities/normalized_transaction.dart';
 import 'package:finance_hub/domain/enums/bill_source.dart';
 import 'package:finance_hub/domain/enums/transaction_type.dart';
 import 'package:finance_hub/features/import/import_entry.dart';
+import 'package:finance_hub/features/quick_entry/quick_entry_sheet.dart';
 import 'package:finance_hub/shared/widgets/amount_text.dart';
 import 'package:finance_hub/shared/widgets/app_card.dart';
 import 'package:flutter/material.dart';
@@ -70,6 +71,11 @@ class _BillsPageState extends ConsumerState<BillsPage> {
         title: const Text('账单明细'),
         actions: <Widget>[
           IconButton(
+            tooltip: '导入账单',
+            onPressed: () => ImportEntry.open(context, ref),
+            icon: const Icon(Icons.file_download_outlined),
+          ),
+          IconButton(
             tooltip: _sortByAmount ? '按时间排序' : '按金额排序',
             onPressed: () => setState(() => _sortByAmount = !_sortByAmount),
             icon: Icon(
@@ -78,9 +84,10 @@ class _BillsPageState extends ConsumerState<BillsPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => ImportEntry.open(context, ref),
-        child: const Icon(Icons.add),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => QuickEntrySheet.open(context),
+        icon: const Icon(Icons.add),
+        label: const Text('记一笔'),
       ),
       body: Column(
         children: <Widget>[

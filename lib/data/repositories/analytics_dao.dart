@@ -543,6 +543,152 @@ class AnalyticsDao {
     return spent < 0 ? 0 : spent;
   }
 
+  /// 带分类 / 商户过滤的区间汇总（自然语言查询用）。
+  ///
+  /// [categoryIds] 通常包含「命中的分类 + 它的全部子分类」，
+  /// 这样问「在咖啡上花了多少」能同时覆盖「餐饮/咖啡茶饮」下的账单。
+  Future<PeriodSummary> summaryFiltered({
+    required int fromMillis,
+    required int toMillis,
+    List<int>? categoryIds,
+    String? merchantLike,
+  }) async {
+    final db = await _database.open();
+    final where = StringBuffer('''
+      deleted_at IS NULL
+      AND status IN ('success','refunded')
+      AND transaction_time >= ? AND transaction_time < ?
+    ''');
+    final args = <Object?>[fromMillis, toMillis];
+
+    if (categoryIds != null && categoryIds.isNotEmpty) {
+      final placeholders = List<String>.filled(categoryIds.length, '?').join(',');
+      where.write(
+        ' AND (category_id IN ($placeholders) OR subcategory_id IN ($placeholders))',
+      );
+      args
+        ..addAll(categoryIds)
+        ..addAll(categoryIds);
+    }
+    if (merchantLike != null && merchantLike.trim().isNotEmpty) {
+      where.write(' AND merchant LIKE ?');
+      args.add('%${merchantLike.trim()}%');
+    }
+
+    final rows = await db.rawQuery(
+      '''
+      SELECT
+        COALESCE(SUM(CASE WHEN transaction_type = 'income'  THEN amount_cents END), 0) AS income,
+        COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount_cents END), 0) AS expense,
+        COALESCE(SUM(CASE WHEN transaction_type = 'refund'  THEN amount_cents END), 0) AS refund,
+        COUNT(*) AS cnt
+      FROM $_t
+      WHERE $where
+      ''',
+      args,
+    );
+    if (rows.isEmpty) {
+      return PeriodSummary.empty;
+    }
+    final row = rows.first;
+    return PeriodSummary(
+      incomeCents: _asInt(row['income']),
+      expenseCents: _asInt(row['expense']),
+      refundCents: _asInt(row['refund']),
+      transactionCount: _asInt(row['cnt']),
+    );
+  }
+
+  /// 带过滤的大额支出（自然语言查询「最大的支出是什么」用）。
+  Future<List<NormalizedTransaction>> topExpensesFiltered({
+    required int fromMillis,
+    required int toMillis,
+    List<int>? categoryIds,
+    String? merchantLike,
+    int limit = 5,
+  }) async {
+    final db = await _database.open();
+    final where = StringBuffer('''
+      deleted_at IS NULL
+      AND status IN ('success','refunded')
+      AND transaction_type = 'expense'
+      AND transaction_time >= ? AND transaction_time < ?
+    ''');
+    final args = <Object?>[fromMillis, toMillis];
+
+    if (categoryIds != null && categoryIds.isNotEmpty) {
+      final placeholders = List<String>.filled(categoryIds.length, '?').join(',');
+      where.write(
+        ' AND (category_id IN ($placeholders) OR subcategory_id IN ($placeholders))',
+      );
+      args
+        ..addAll(categoryIds)
+        ..addAll(categoryIds);
+    }
+    if (merchantLike != null && merchantLike.trim().isNotEmpty) {
+      where.write(' AND merchant LIKE ?');
+      args.add('%${merchantLike.trim()}%');
+    }
+
+    final rows = await db.query(
+      _t,
+      where: where.toString(),
+      whereArgs: args,
+      orderBy: 'amount_cents DESC',
+      limit: limit,
+    );
+    return rows.map(NormalizedTransaction.fromMap).toList(growable: false);
+  }
+
+  /// 按一级分类 id 找出「它自己 + 全部子分类」的 id 列表。
+  Future<List<int>> categoryWithChildren(int categoryId) async {
+    final db = await _database.open();
+    final rows = await db.query(
+      'categories',
+      columns: <String>['id'],
+      where: 'id = ? OR parent_id = ?',
+      whereArgs: <Object?>[categoryId, categoryId],
+    );
+    return rows
+        .map((row) => row['id'] as int?)
+        .whereType<int>()
+        .toList(growable: false);
+  }
+
+  /// 按名称模糊找分类 id（自然语言查询里的关键词 → 分类）。
+  ///
+  /// 优先精确匹配，其次包含匹配；一级与二级都参与。
+  Future<int?> findCategoryIdByName(String keyword) async {
+    final trimmed = keyword.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+    final db = await _database.open();
+    final exact = await db.query(
+      'categories',
+      columns: <String>['id'],
+      where: 'name = ? AND is_active = 1',
+      whereArgs: <Object?>[trimmed],
+      orderBy: 'level DESC',
+      limit: 1,
+    );
+    if (exact.isNotEmpty) {
+      return exact.first['id'] as int?;
+    }
+    final fuzzy = await db.query(
+      'categories',
+      columns: <String>['id'],
+      where: 'name LIKE ? AND is_active = 1',
+      whereArgs: <Object?>['%$trimmed%'],
+      orderBy: 'level DESC',
+      limit: 1,
+    );
+    if (fuzzy.isNotEmpty) {
+      return fuzzy.first['id'] as int?;
+    }
+    return null;
+  }
+
   /// 最早/最晚交易时间（数据时间跨度）。
   Future<DateTime?> earliestTime() async {
     final db = await _database.open();

@@ -2,6 +2,7 @@ import 'package:finance_hub/app/providers.dart';
 import 'package:finance_hub/app/theme/app_colors.dart';
 import 'package:finance_hub/core/money/money.dart';
 import 'package:finance_hub/domain/entities/statistics.dart';
+import 'package:finance_hub/features/insights/insights_page.dart';
 import 'package:finance_hub/features/merchant/merchant_detail_page.dart';
 import 'package:finance_hub/shared/widgets/app_card.dart';
 import 'package:finance_hub/shared/widgets/charts/monthly_trend_chart.dart';
@@ -26,6 +27,7 @@ class StatsPage extends ConsumerWidget {
     final buckets = ref.watch(timeBucketTotalsProvider);
     final trend = ref.watch(monthlyTrendProvider);
     final merchants = ref.watch(merchantTotalsProvider);
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -53,6 +55,35 @@ class StatsPage extends ConsumerWidget {
           AppDimens.gapXl,
         ),
         children: <Widget>[
+          AppCard(
+            onTap: () => Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(builder: (_) => const InsightsPage()),
+            ),
+            child: Row(
+              children: <Widget>[
+                Icon(
+                  Icons.auto_awesome_outlined,
+                  size: 18,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: AppDimens.gapM),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text('消费分析', style: theme.textTheme.titleMedium),
+                      Text(
+                        '本地生成消费洞察 · 支持一句话提问',
+                        style: theme.textTheme.labelSmall,
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, size: 18),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppDimens.gapL),
           AppCard(
             child: MonthlyTrendCard(
               data: trend.value ?? const <MonthlyTotal>[],

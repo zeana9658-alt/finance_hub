@@ -7,6 +7,7 @@ import 'package:finance_hub/domain/entities/statistics.dart';
 import 'package:finance_hub/domain/enums/transaction_type.dart';
 import 'package:finance_hub/features/category/category_detail_page.dart';
 import 'package:finance_hub/features/import/import_entry.dart';
+import 'package:finance_hub/features/quick_entry/quick_entry_sheet.dart';
 import 'package:finance_hub/shared/widgets/amount_text.dart';
 import 'package:finance_hub/shared/widgets/app_card.dart';
 import 'package:flutter/material.dart';
@@ -52,9 +53,9 @@ class DashboardPage extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => ImportEntry.open(context, ref),
+        onPressed: () => QuickEntrySheet.open(context),
         icon: const Icon(Icons.add),
-        label: const Text('导入账单'),
+        label: const Text('记一笔'),
       ),
       body: count.when(
         loading: () => const Center(child: CircularProgressIndicator()),
