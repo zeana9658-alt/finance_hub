@@ -75,19 +75,31 @@
 ## 快速开始
 
 ```bash
+export PATH="/c/Users/kol56/.workbuddy-ai/tools/flutter/bin:$PATH"
+# ⚠️ 本机 http_proxy 会让 pub 假死，务必先 unset
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+cd finance_hub
+
 # 依赖
 flutter pub get
 
-# 静态分析（必须零 error）
+# 静态分析（当前：No issues found）
 dart analyze
 
-# 测试
-flutter test
+# 测试（当前：110 个用例全部通过）
+# ⚠️ Git Bash 缺 %PROGRAMFILES(X86)%，需要显式注入
+env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' flutter test
 
 # 构建
-flutter build apk --release        # Android
-flutter build windows --release    # Windows（可选）
+flutter build apk --release        # Android（需先装 JDK + Android SDK）
+flutter build windows --release    # Windows（需 VS 的 C++ 桌面开发工作负载）
 ```
+
+> **当前验证状态**
+> - ✅ `dart analyze`：零 error / 零 warning / 零 info
+> - ✅ `flutter test`：110 个用例全部通过（含金额精度、GBK、去重、分类、迁移、Widget）
+> - ❌ 两条打包路径受限于本机工具链（缺 JDK+Android SDK / VS 缺 C++ 工作负载），
+>   **不是代码问题**。补齐方法见 [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) §4。
 
 ---
 
@@ -123,6 +135,7 @@ docs/            设计与规范文档
 | [`docs/IMPORT_FORMATS.md`](docs/IMPORT_FORMATS.md) | 微信/支付宝账单真实格式与解析规范 |
 | [`docs/PRIVACY.md`](docs/PRIVACY.md) | 隐私承诺、AI 隐私边界、仓库规范 |
 | [`docs/TESTING.md`](docs/TESTING.md) | 测试策略、必测清单、自检清单 |
+| [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) | **工具链搭建全过程、三个必踩的坑、当前构建限制与解除方法** |
 
 ---
 
