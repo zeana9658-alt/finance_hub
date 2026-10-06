@@ -172,7 +172,7 @@ cd /path/to/finance_hub
 flutter pub get
 dart analyze                                  # 当前：No issues found
 env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' flutter test --no-pub
-                                              # 当前：247 个用例全部通过
+                                              # 当前：249 个用例全部通过
 
 # 出 APK（约 12 分钟，首次会久一些）
 env 'PROGRAMFILES(X86)=C:\Program Files (x86)' 'PROGRAMFILES=C:\Program Files' \
@@ -277,6 +277,6 @@ Flutter 报 `Unable to find suitable Visual Studio toolchain`。
 | 验证项 | 状态 |
 |---|---|
 | `dart analyze` | ✅ No issues found |
-| `flutter test` | ✅ 247 个用例全部通过 |
+| `flutter test` | ✅ 249 个用例全部通过 |
 | `flutter build apk --release` | ✅ **成功**，产物已验签 |
 | `flutter build windows` | ❌ VS 缺 C++ 工作负载（见 §7） |

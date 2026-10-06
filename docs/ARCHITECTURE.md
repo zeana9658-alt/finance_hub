@@ -460,7 +460,7 @@ iOS / macOS 预留：`sqflite` 与 `file_picker` 均支持，只需 `flutter cre
 | 21 | AI（可选） | `FinancialSummary` + 自然语言查询 | ⏳ 未实现 |
 | 22 | 最终验收 | 24 条验收标准逐条验证 | 🟡 23/24 已覆盖 |
 
-> 当前验证：`dart analyze` 零问题；`flutter test` **167 个用例全部通过**；
+> 当前验证：`dart analyze` 零问题；`flutter test` **249 个用例全部通过**；
 > `flutter build apk --release` 成功（产物已验签）。
 > Windows 打包仍缺 VS 的 C++ 工作负载，见 `docs/ENVIRONMENT.md` §7。
 

@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Flutter](https://img.shields.io/badge/Flutter-3.47%2B-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
 [![Platform](https://img.shields.io/badge/platform-Android%20%7C%20Windows-3DDC84?logo=android&logoColor=white)](#技术栈)
-[![Tests](https://img.shields.io/badge/tests-247%20passed-brightgreen)](#快速开始)
+[![Tests](https://img.shields.io/badge/tests-249%20passed-brightgreen)](#快速开始)
 
 > **个人财务数据中枢** —— 把支付宝和微信账单扔进去，App 帮你把消费生活讲清楚。
 
@@ -98,7 +98,7 @@ flutter pub get
 # 2) 静态分析（当前：No issues found）
 dart analyze
 
-# 3) 测试（当前：247 个用例全部通过）
+# 3) 测试（当前：249 个用例全部通过）
 flutter test
 
 # 4) 出 Android APK
@@ -144,7 +144,7 @@ keytool -genkeypair -v -keystore android/app/your-release.jks \
 
 > **当前验证状态**
 > - ✅ `dart analyze`：零 error / 零 warning / 零 info
-> - ✅ `flutter test`：**247 个用例全部通过**（金额精度、GBK、去重、分类、重跑、迁移、备份、意图解析、查询引擎、Widget）
+> - ✅ `flutter test`：**249 个用例全部通过**（金额精度、GBK、去重、分类、重跑、迁移、备份、意图解析、查询引擎、Widget）
 > - ✅ `flutter build apk --release`：构建成功，release 签名，**零危险权限**，覆盖 arm64-v8a / armeabi-v7a / x86_64
 > - ⚠️ `flutter build windows`：需要 Visual Studio 的「使用 C++ 的桌面开发」工作负载
 > - ⚠️ **Android 上不要执行 `PRAGMA journal_mode = WAL`** —— 会让 `openDatabase` 直接抛异常，
