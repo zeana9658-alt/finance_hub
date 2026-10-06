@@ -1,5 +1,7 @@
 # 聚账 · FinanceHub
 
+**简体中文** | [English](README.en.md)
+
 [![CI](https://github.com/zeana9658-alt/finance_hub/actions/workflows/ci.yml/badge.svg)](https://github.com/zeana9658-alt/finance_hub/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Flutter](https://img.shields.io/badge/Flutter-3.47%2B-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
